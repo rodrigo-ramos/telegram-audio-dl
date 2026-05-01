@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+launchd plist para macOS. Para instalar como agente del usuario:
+
+  cp scripts/com.telegram-audio-dl.plist ~/Library/LaunchAgents/
+  # Edita los paths con tus valores absolutos
+  launchctl load ~/Library/LaunchAgents/com.telegram-audio-dl.plist
+
+Para detener:
+  launchctl unload ~/Library/LaunchAgents/com.telegram-audio-dl.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.telegram-audio-dl</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Edita estos paths con valores absolutos -->
+        <string>/Users/USER/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl</string>
+        <string>daemon</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/USER/telegram-audio-dl</string>
+
+    <!-- Arranca al login y se reinicia si crashea -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Logs (separados de los del daemon — útil para errores tempranos) -->
+    <key>StandardOutPath</key>
+    <string>/Users/USER/telegram-audio-dl/state/logs/launchd.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USER/telegram-audio-dl/state/logs/launchd.stderr.log</string>
+
+    <!-- Variables de entorno opcionales -->
+    <!--
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LOG_LEVEL</key>
+        <string>INFO</string>
+    </dict>
+    -->
+</dict>
+</plist>
