@@ -1,0 +1,62 @@
+# ─── Secrets and credentials ─────────────────────────────────────────────────
+.env
+.env.local
+*.session
+*.session-journal
+*.session-shm
+*.session-wal
+
+# ─── Runtime state and caches ────────────────────────────────────────────────
+state/
+assets-local/
+.pytest_cache/
+
+# ─── Downloaded media (per-user libraries, never in repo) ────────────────────
+# Anything at the project root that isn't a tracked source/doc folder is
+# treated as user data (downloaded channels live as <root>/<channel>/).
+/*/
+!/src/
+!/tests/
+!/docs/
+!/bin/
+!/scripts/
+!/tools/
+
+# ─── Private / homelab-specific docs (stay in local Vault) ───────────────────
+HOMELAB.md
+docs/vaultwarden-setup.md
+tools/kickoff_downloads.local.py
+
+# ─── macOS ───────────────────────────────────────────────────────────────────
+._*
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.eggs/
+.tox/
+.coverage
+htmlcov/
+
+# ─── Virtual environments ────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ─── Editors / IDEs / Claude Code ────────────────────────────────────────────
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,0 +1,36 @@
+[Unit]
+Description=Telegram Audio Downloader Daemon
+Documentation=https://github.com/your-fork/telegram-audio-dl
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Type=simple: el daemon corre en foreground (logs van a journald + log file).
+# No usar `--detach`; systemd hace el equivalente.
+Type=simple
+
+# Ajusta estos paths antes de instalar:
+WorkingDirectory=/home/<USER>/telegram-audio-dl
+ExecStart=/home/<USER>/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl daemon
+
+# El user debe tener acceso al .session, .env y state/.
+User=<USER>
+Group=<USER>
+
+# Reinicio automático: si el daemon crashea, vuelve a arrancar tras 10s.
+Restart=on-failure
+RestartSec=10
+
+# Hardening básico (POSIX). Comentar si causan problemas.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/<USER>/telegram-audio-dl
+
+# Variables de entorno (alternativa a .env si prefieres systemd):
+# Environment=LOG_LEVEL=INFO
+# EnvironmentFile=/home/<USER>/telegram-audio-dl/.env
+
+[Install]
+WantedBy=default.target
