@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-audio-dl"
+version = "0.1.0"
+description = "Interactive CLI to download audio files from Telegram channels"
+requires-python = ">=3.10"
+authors = [{ name = "Rodrigo Ramos" }]
+dependencies = [
+    "telethon>=1.36",
+    "questionary>=2.0",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+    "mutagen>=1.47",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+telegram-audio-dl = "telegram_audio_dl.entrypoint:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
