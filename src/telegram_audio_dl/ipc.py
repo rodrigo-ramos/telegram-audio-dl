@@ -100,7 +100,9 @@ class IpcServer:
 
         self._sock_path.parent.mkdir(parents=True, exist_ok=True)
         self._server = await asyncio.start_unix_server(
-            self._handle_client, path=str(self._sock_path)
+            self._handle_client,
+            path=str(self._sock_path),
+            limit=MAX_LINE_BYTES,
         )
         # Permisos restrictivos: solo el dueño puede leer/escribir
         try:
@@ -191,7 +193,9 @@ async def send_command(sock_path: Path, message: dict[str, Any]) -> dict[str, An
     - La respuesta es JSON inválida.
     """
     try:
-        reader, writer = await asyncio.open_unix_connection(path=str(sock_path))
+        reader, writer = await asyncio.open_unix_connection(
+            path=str(sock_path), limit=MAX_LINE_BYTES
+        )
     except (FileNotFoundError, ConnectionRefusedError, OSError) as exc:
         raise IpcError(f"daemon not available at {sock_path}: {exc}") from exc
 
