@@ -11,26 +11,45 @@ Interactive Python CLI to download audio/music files from Telegram channels you'
 
 ---
 
+## Quick Start
+
+Prerequisites: Python 3.10+, [`uv`](https://docs.astral.sh/uv/), `mpv` (recommended), and a Telegram `api_id` + `api_hash` from <https://my.telegram.org>.
+
+```bash
+git clone https://github.com/rodrigo-ramos/telegram-audio-dl.git
+cd telegram-audio-dl
+uv sync
+cp .env.example .env                # fill in TELEGRAM_API_ID, _HASH, _PHONE
+uv run telegram-audio-dl            # first run prompts for the Telegram code
+```
+
+That's it. The interactive menu opens. Pick a channel, download or stream.
+
+For multi-platform install, daemon mode, dev workflows, and troubleshooting, see [Step-by-step setup](#step-by-step-setup) below.
+
+---
+
 ## Table of contents
 
-1. [Features](#features)
-2. [Requirements](#requirements)
-3. [Step-by-step setup](#step-by-step-setup)
-4. [Environment variables (`.env`)](#environment-variables-env)
-5. [Project structure](#project-structure)
-6. [How to run it](#how-to-run-it)
-7. [Main menu flow](#main-menu-flow)
-8. [Player: controls](#player-controls)
-9. [Online streaming](#online-streaming)
-10. [Daemon mode (background downloads)](#daemon-mode-background-downloads)
-11. [Job states](#job-states)
-12. [Range selection (multi-select)](#range-selection-multi-select)
-13. [Logs and troubleshooting](#logs-and-troubleshooting)
-14. [Persistent files](#persistent-files)
-15. [Tests](#tests)
-16. [FAQ](#faq)
-17. [Known limitations](#known-limitations)
-18. [Day-to-day operation](#day-to-day-operation)
+1. [Quick Start](#quick-start)
+2. [Features](#features)
+3. [Requirements](#requirements)
+4. [Step-by-step setup](#step-by-step-setup)
+5. [Environment variables (`.env`)](#environment-variables-env)
+6. [Project structure](#project-structure)
+7. [How to run it](#how-to-run-it)
+8. [Main menu flow](#main-menu-flow)
+9. [Player: controls](#player-controls)
+10. [Online streaming](#online-streaming)
+11. [Daemon mode (background downloads)](#daemon-mode-background-downloads)
+12. [Job states](#job-states)
+13. [Range selection (multi-select)](#range-selection-multi-select)
+14. [Logs and troubleshooting](#logs-and-troubleshooting)
+15. [Persistent files](#persistent-files)
+16. [Tests](#tests)
+17. [FAQ](#faq)
+18. [Known limitations](#known-limitations)
+19. [Day-to-day operation](#day-to-day-operation)
 
 ---
 
