@@ -24,6 +24,7 @@ def test_load_config_with_all_vars(monkeypatch, tmp_path: Path):
 
 
 def test_load_config_defaults_session_and_download_root(monkeypatch):
+    monkeypatch.setattr("telegram_audio_dl.config.load_dotenv", lambda *a, **kw: None)
     monkeypatch.setenv("TELEGRAM_API_ID", "1")
     monkeypatch.setenv("TELEGRAM_API_HASH", "x" * 32)
     monkeypatch.setenv("TELEGRAM_PHONE", "+1234567890")
