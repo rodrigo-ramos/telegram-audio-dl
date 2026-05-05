@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
+import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -102,6 +103,8 @@ class Daemon:
         self._stop_event = asyncio.Event()
 
     async def start(self) -> None:
+        self._tune_session_sqlite()
+
         logger.info("Connecting to Telegram (daemon mode)")
         self.client = TelegramAudioClient(self.config)
         await self.client.__aenter__()
@@ -117,6 +120,38 @@ class Daemon:
             socket_path(self.config.state_dir), self._handle_command
         )
         await self.ipc_server.start()
+
+    def _tune_session_sqlite(self) -> None:
+        # Sin WAL, las corrutinas internas de Telethon (entity processor,
+        # iter_messages, get_messages) colisionan sobre el .session SQLite
+        # en alta carga y disparan SQLITE_BUSY en cascada. WAL permite
+        # múltiples lectores y un escritor concurrentes y elimina el storm.
+        # journal_mode=WAL es persistente; busy_timeout no lo es porque
+        # Telethon abre su propia conexión, pero el cambio de journal_mode
+        # solo ya resuelve el caso. Abrir/cerrar limpio también drena un
+        # rollback-journal residual de un crash previo.
+        session_file = (
+            self.config.project_root / f"{self.config.session_name}.session"
+        )
+        if not session_file.exists():
+            logger.info("No .session yet (first boot); skipping SQLite tuning")
+            return
+
+        journal = Path(str(session_file) + "-journal")
+        if journal.exists() and journal.stat().st_size > 0:
+            logger.warning(
+                "Stale .session-journal detected (%d bytes); opening clean to drain",
+                journal.stat().st_size,
+            )
+
+        try:
+            with sqlite3.connect(str(session_file), timeout=30.0) as conn:
+                row = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+                conn.execute("PRAGMA busy_timeout=30000")
+                mode = row[0] if row else "?"
+            logger.info("Session SQLite tuned: journal_mode=%s", mode)
+        except sqlite3.Error as exc:
+            logger.warning("Failed to tune session SQLite: %s", exc)
 
     async def shutdown(self) -> None:
         logger.info("Daemon shutting down")
