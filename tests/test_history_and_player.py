@@ -303,7 +303,7 @@ def test_render_player_panel_with_metadata(tmp_path: Path):
     assert "01:00" in rendered  # position MM:SS
     assert "04:00" in rendered  # duration MM:SS
     assert "320 kbps" in rendered
-    assert "REPRODUCIENDO" in rendered
+    assert "PLAYING" in rendered
 
 
 def test_render_player_panel_paused_shows_pause_label(tmp_path: Path):
@@ -312,7 +312,7 @@ def test_render_player_panel_paused_shows_pause_label(tmp_path: Path):
     panel = _render_player_panel(audio, None, position=0.0, duration=0.0, paused=True)
     rendered = panel.renderable
     assert "⏸" in rendered
-    assert "PAUSADO" in rendered
+    assert "PAUSED" in rendered
 
 
 def test_render_player_panel_no_metadata_uses_filename(tmp_path: Path):
@@ -329,8 +329,8 @@ def test_render_player_panel_shows_controls_when_enabled(tmp_path: Path):
         audio, None, position=0.0, duration=10.0, paused=False, controls_enabled=True
     )
     rendered = panel.renderable
-    assert "CONTROLES" in rendered
-    assert "[Espacio]" in rendered
+    assert "CONTROLS" in rendered
+    assert "[Space]" in rendered
     assert "[← →]" in rendered
     assert "[↑ ↓]" in rendered
     assert "[0]" in rendered
@@ -353,7 +353,7 @@ def test_render_player_panel_shows_queue_section(tmp_path: Path):
         audio, None, position=0.0, duration=10.0, paused=False, queue=queue
     )
     rendered = panel.renderable
-    assert "COLA" in rendered
+    assert "QUEUE" in rendered
     assert "(3/10)" in rendered
     assert "prev_track.mp3" in rendered
     assert "current.mp3" in rendered
@@ -371,7 +371,7 @@ def test_render_player_panel_queue_first_track_shows_no_previous(tmp_path: Path)
     )
     panel = _render_player_panel(audio, None, 0.0, 10.0, paused=False, queue=queue)
     rendered = panel.renderable
-    assert "Anterior: —" in rendered
+    assert "Previous: —" in rendered
 
 
 def test_render_player_panel_queue_last_track_shows_end(tmp_path: Path):
@@ -384,7 +384,7 @@ def test_render_player_panel_queue_last_track_shows_end(tmp_path: Path):
     )
     panel = _render_player_panel(audio, None, 0.0, 10.0, paused=False, queue=queue)
     rendered = panel.renderable
-    assert "fin de cola" in rendered
+    assert "end of queue" in rendered
 
 
 def test_render_player_panel_no_queue_omits_section(tmp_path: Path):
@@ -393,7 +393,7 @@ def test_render_player_panel_no_queue_omits_section(tmp_path: Path):
     panel = _render_player_panel(audio, None, 0.0, 10.0, paused=False, queue=None)
     rendered = panel.renderable
     assert "COLA" not in rendered
-    assert "Siguientes" not in rendered
+    assert "Next" not in rendered
 
 
 def test_render_player_panel_streaming_shows_streaming_label(tmp_path: Path):
@@ -435,7 +435,7 @@ def test_render_player_panel_shows_fallback_hint_when_disabled(tmp_path: Path):
         audio, None, position=0.0, duration=10.0, paused=False, controls_enabled=False
     )
     rendered = panel.renderable
-    assert "Reproductor de respaldo" in rendered
+    assert "Fallback player" in rendered
     assert "mpv" in rendered
     assert "Ctrl+C" in rendered
     # El mensaje multiplataforma menciona ambos sistemas

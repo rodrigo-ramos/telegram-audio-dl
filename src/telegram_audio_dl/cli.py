@@ -117,14 +117,14 @@ def interactive_main() -> int:
     """Modo interactivo (default cuando se llama sin subcomando).
 
     Flujo histórico: menú principal con questionary, descargas en background,
-    streaming online, biblioteca local. Si detecta un daemon corriendo,
+    streaming online, biblioteca local. Si detecta un daemon running,
     delega las descargas vía IPC (no abre Telethon propia para evitar
     conflicto con el lock del .session).
     """
     try:
         config = load_config()
     except RuntimeError as exc:
-        console.print(f"[red]Configuración inválida:[/red] {exc}")
+        console.print(f"[red]Invalid configuration:[/red] {exc}")
         return 2
 
     log_file = setup_logging(config.state_dir)
@@ -140,7 +140,7 @@ def interactive_main() -> int:
         return asyncio.run(_run(config))
     except KeyboardInterrupt:
         logger.info("Interrupted by user (KeyboardInterrupt)")
-        console.print("\n[yellow]Interrumpido por el usuario.[/yellow]")
+        console.print("\n[yellow]Interrupted by user.[/yellow]")
         return 130
     except Exception:
         logger.exception("Fatal error in main loop")
@@ -167,7 +167,7 @@ class PlaybackQueue:
     position: int  # 1-based en la cola
     total: int
     previous_name: str | None
-    upcoming_names: list[str]  # hasta 6 siguientes
+    upcoming_names: list[str]  # hasta 6 nexts
 
 
 @dataclass(frozen=True)
@@ -665,7 +665,7 @@ class PlayerSession:
     ):
         if self._current_path is None:
             return Panel(
-                "[dim]Esperando próxima pista…[/dim]",
+                "[dim]Waiting for next track…[/dim]",
                 title=self.label,
                 border_style="blue",
             )
@@ -719,7 +719,7 @@ class PendingChannel:
 async def _run(config: Config) -> int:
     from .ipc import daemon_running_pid
 
-    console.print("[bold]Iniciando…[/bold]")
+    console.print("[bold]Starting…[/bold]")
     last_parent: Path | None = None
     client: TelegramAudioClient | None = None
     manager: DownloadManager | None = None
@@ -728,34 +728,34 @@ async def _run(config: Config) -> int:
     daemon_pid = daemon_running_pid(config.state_dir)
     if daemon_pid is not None:
         console.print(
-            f"[yellow]⚠  Daemon corriendo[/yellow] (pid={daemon_pid}). "
-            "El daemon ocupa la sesión Telethon, así que en este modo "
-            "interactivo solo están disponibles las opciones que NO "
-            "requieren Telegram:"
+            f"[yellow]⚠  Daemon running[/yellow] (pid={daemon_pid}). "
+            "The daemon owns the Telethon session, so in this interactive "
+            "mode only the options that do NOT require Telegram are "
+            "available:"
         )
         console.print(
-            "  • [cyan]Biblioteca local[/cyan] (audios ya descargados)\n"
-            "  • [cyan]Reproducir música de una carpeta[/cyan]\n"
-            "  • [cyan]Ver descargas en curso[/cyan] (vía IPC al daemon)\n"
+            "  • [cyan]Local library[/cyan] (audios already downloaded)\n"
+            "  • [cyan]Play music from a folder[/cyan]\n"
+            "  • [cyan]View ongoing downloads[/cyan] (via IPC to daemon)\n"
         )
         console.print(
-            "[dim]Para usar Buscar canales / Stream online / Reanudar / etc., "
-            "primero detén el daemon: [bold]telegram-audio-dl stop-daemon[/bold]\n"
-            "También puedes usar [bold]telegram-audio-dl status[/bold] desde "
-            "otra terminal para ver el progreso del daemon en tiempo real.[/dim]"
+            "[dim]To use Search channels / Online stream / Resume / etc., "
+            "stop the daemon first: [bold]telegram-audio-dl stop-daemon[/bold]\n"
+            "You can also use [bold]telegram-audio-dl status[/bold] from "
+            "another terminal to watch the daemon's progress in real time.[/dim]"
         )
 
     async def ensure_client() -> TelegramAudioClient:
         nonlocal client, manager
         if daemon_pid is not None:
             raise RuntimeError(
-                "El daemon tiene la sesión Telethon. Detén el daemon "
-                "(`telegram-audio-dl stop-daemon`) o usa otra opción del "
-                "menú que no requiera Telegram."
+                "The daemon owns the Telethon session. Stop the daemon "
+                "(`telegram-audio-dl stop-daemon`) or use another menu "
+                "option that does not require Telegram."
             )
         if client is None:
             logger.info("Connecting to Telegram (lazy init)")
-            console.print("[bold]Conectando a Telegram…[/bold]")
+            console.print("[bold]Connecting to Telegram…[/bold]")
             client = TelegramAudioClient(config)
             await client.__aenter__()
             logger.info("Telegram connection established")
@@ -783,8 +783,8 @@ async def _run(config: Config) -> int:
             if top == "quit":
                 if manager is not None and manager.has_active_jobs:
                     confirm = await questionary.confirm(
-                        "Hay descargas en curso. ¿Salir? "
-                        "(quedarán pausadas y se reanudarán al volver a abrir)",
+                        "Downloads in progress. Exit? "
+                        "(they will be paused and resumed when reopened)",
                         default=True,
                     ).ask_async()
                     if not confirm:
@@ -805,7 +805,7 @@ async def _run(config: Config) -> int:
                     await _show_daemon_jobs(config)
                     continue
                 if manager is None:
-                    console.print("[yellow]No hay descargas iniciadas todavía.[/yellow]")
+                    console.print("[yellow]No downloads started yet.[/yellow]")
                     continue
                 await _jobs_view(manager)
                 continue
@@ -839,7 +839,7 @@ async def _run(config: Config) -> int:
 
             audios = await _list_audios(cl, channel)
             if not audios:
-                console.print("[yellow]Este canal no tiene audios.[/yellow]")
+                console.print("[yellow]This channel has no audios.[/yellow]")
                 continue
 
             handled = await _handle_channel(cl, manager, channel, audios, config, last_parent)
@@ -857,39 +857,39 @@ async def _top_menu(
     session: PlayerSession | None = None,
 ) -> str:
     active = manager.has_active_jobs if manager is not None else False
-    jobs_label = "Ver descargas en curso"
+    jobs_label = "View ongoing downloads"
     if manager is not None:
         running = sum(1 for j in manager.jobs if j.state == "running")
         queued = sum(1 for j in manager.jobs if j.state == "queued")
         if running or queued:
-            jobs_label += f" ({running} corriendo, {queued} en cola)"
+            jobs_label += f" ({running} running, {queued} in queue)"
         elif manager.jobs:
-            jobs_label += f" ({len(manager.jobs)} historial)"
+            jobs_label += f" ({len(manager.jobs)} history)"
 
-    title = "Menú principal:"
+    title = "Main menu:"
     if active:
-        title += "  [dim](descargas activas en background)[/dim]"
+        title += "  [dim](active downloads in background)[/dim]"
 
     choices: list = []
     if session is not None and session.is_running:
         np = session.now_playing or session.label
         choices.append(
             questionary.Choice(
-                f"🎶  Volver al reproductor (Sonando: {np[:48]})", "resume_player"
+                f"🎶  Resume player (Now playing: {np[:48]})", "resume_player"
             )
         )
     choices.extend([
-        questionary.Choice("🔍  Buscar canales en Telegram", "channels"),
-        questionary.Choice("⏬  Reanudar descargas pendientes", "resume"),
+        questionary.Choice("🔍  Search channels in Telegram", "channels"),
+        questionary.Choice("⏬  Resume pending downloads", "resume"),
         questionary.Choice(f"📊  {jobs_label}", "jobs"),
-        questionary.Choice("📚  Biblioteca local (canales descargados)", "library"),
-        questionary.Choice("🎵  Reproducir música de una carpeta", "folder"),
+        questionary.Choice("📚  Local library (downloaded channels)", "library"),
+        questionary.Choice("🎵  Play music from a folder", "folder"),
     ])
     if has_mpv():
         choices.append(
-            questionary.Choice("🌐  Reproducción online (streaming)", "stream")
+            questionary.Choice("🌐  Online playback (streaming)", "stream")
         )
-    choices.append(questionary.Choice("🚪  Salir", "quit"))
+    choices.append(questionary.Choice("🚪  Exit", "quit"))
 
     return await questionary.select(title, choices=choices).ask_async()
 
@@ -919,7 +919,7 @@ async def _handle_channel(
             continue
 
         if manager is None:
-            console.print("[red]No hay manager disponible.[/red]")
+            console.print("[red]No manager available.[/red]")
             return None
 
         job = manager.enqueue(
@@ -930,38 +930,38 @@ async def _handle_channel(
         )
         total_size = sum(a.size_bytes for a in selection)
         console.print(
-            f"[green]✓[/green] Encolado job [bold]{job.job_id}[/bold]: "
+            f"[green]✓[/green] Enqueued job [bold]{job.job_id}[/bold]: "
             f"{len(selection)} audios ({_fmt_size(total_size)}) → {destination}"
         )
         console.print(
-            "[dim]Corre en background. Puedes seguir navegando o ver el estado en "
-            "[bold]Ver descargas en curso[/bold].[/dim]"
+            "[dim]Running in background. You can keep navigating or check status in "
+            "[bold]View ongoing downloads[/bold].[/dim]"
         )
         return destination.parent
 
 
 async def _select_channel(client: TelegramAudioClient) -> ChannelInfo | None:
-    console.print("[bold]Cargando canales…[/bold]")
+    console.print("[bold]Loading channels…[/bold]")
     channels = await client.list_channels()
     if not channels:
-        console.print("[red]No se encontraron canales en tu cuenta.[/red]")
+        console.print("[red]No channels found in your account.[/red]")
         return None
 
     return await _paginated_select(
-        "Selecciona un canal (escribe para filtrar):",
+        "Select a channel (type to filter):",
         channels,
         make_choice=lambda c: questionary.Choice(
             title=f"{c.name}" + (f"  (@{c.username})" if c.username else ""),
             value=c,
         ),
-        back_label="↩️   Menú principal",
+        back_label="↩️   Main menu",
     )
 
 
 async def _list_audios(
     client: TelegramAudioClient, channel: ChannelInfo
 ) -> list[AudioItem]:
-    console.print(f"[bold]Listando audios de:[/bold] {channel.name}")
+    console.print(f"[bold]Listing audios from:[/bold] {channel.name}")
     audios = await client.list_audios(channel.id)
     if audios:
         _render_audios_table(audios)
@@ -972,11 +972,11 @@ def _render_audios_table(audios: list[AudioItem]) -> None:
     n = len(audios)
     shown = min(n, PAGE_SIZE)
     suffix = f" (mostrando primeros {shown})" if n > PAGE_SIZE else ""
-    table = Table(title=f"Audios encontrados: {n}{suffix}", show_lines=False)
+    table = Table(title=f"Audios found: {n}{suffix}", show_lines=False)
     table.add_column("#", justify="right", style="dim")
-    table.add_column("Título")
-    table.add_column("Duración", justify="right")
-    table.add_column("Tamaño", justify="right")
+    table.add_column("Title")
+    table.add_column("Duration", justify="right")
+    table.add_column("Size", justify="right")
     for idx, audio in enumerate(audios[:shown], 1):
         table.add_row(
             str(idx),
@@ -989,21 +989,21 @@ def _render_audios_table(audios: list[AudioItem]) -> None:
 
 async def _choose_action_kind() -> str:
     choices = [
-        questionary.Choice("⬇️   Descargar todos (con dedup)", "all"),
-        questionary.Choice("✅  Seleccionar algunos", "some"),
+        questionary.Choice("⬇️   Download all (with dedup)", "all"),
+        questionary.Choice("✅  Select some", "some"),
     ]
     preview_player = find_simple_audio_player()
     if preview_player is not None:
         choices.append(
             questionary.Choice(
-                f"👀  Vista previa ({PREVIEW_SECONDS}s con {preview_player.name})",
+                f"👀  Preview ({PREVIEW_SECONDS}s con {preview_player.name})",
                 "preview",
             )
         )
-    choices.append(questionary.Choice("↩️   Volver a canales", "back"))
+    choices.append(questionary.Choice("↩️   Back to channels", "back"))
 
     return await questionary.select(
-        "¿Qué quieres hacer?",
+        "What would you like to do?",
         choices=choices,
     ).ask_async()
 
@@ -1023,7 +1023,7 @@ async def _resolve_selection(
                 for a in audios
             ]
             picked = await questionary.checkbox(
-                "Selecciona los audios a descargar (espacio para marcar):",
+                "Select audios to download (space to mark):",
                 choices=choices,
             ).ask_async()
             return picked or None
@@ -1036,12 +1036,12 @@ async def _resolve_selection(
 async def _select_by_ranges(audios: list[AudioItem]) -> list[AudioItem] | None:
     n = len(audios)
     console.print(
-        f"[bold]{n} audios disponibles.[/bold] La tabla muestra los primeros {PAGE_SIZE}; "
-        f"para ver más, escribe [cyan]more[/cyan] para listar otra página."
+        f"[bold]{n} audios available.[/bold] The table shows the first {PAGE_SIZE}; "
+        f"para ver more, escribe [cyan]more[/cyan] to list another page."
     )
     console.print(
-        "[dim]Formato de rangos:[/dim] [cyan]1-50,100-200,500[/cyan]  "
-        "[dim]·[/dim]  [cyan]all[/cyan] = todos  [dim]·[/dim]  vacío = cancelar"
+        "[dim]Range format:[/dim] [cyan]1-50,100-200,500[/cyan]  "
+        "[dim]·[/dim]  [cyan]all[/cyan] = all  [dim]·[/dim]  empty = cancel"
     )
 
     page = 0
@@ -1053,7 +1053,7 @@ async def _select_by_ranges(audios: list[AudioItem]) -> list[AudioItem] | None:
         _render_audios_page(audios, start, end, total_pages, page)
 
         spec = await questionary.text(
-            f"Rangos (1-{n}) o 'more' para siguiente página:",
+            f"Ranges (1-{n}) or 'more' for next page:",
         ).ask_async()
         if spec is None:
             return None
@@ -1066,7 +1066,7 @@ async def _select_by_ranges(audios: list[AudioItem]) -> list[AudioItem] | None:
             if page < total_pages - 1:
                 page += 1
             else:
-                console.print("[yellow]Ya estás en la última página.[/yellow]")
+                console.print("[yellow]You're on the last page.[/yellow]")
             continue
         if spec.lower() == "prev":
             page = max(0, page - 1)
@@ -1075,7 +1075,7 @@ async def _select_by_ranges(audios: list[AudioItem]) -> list[AudioItem] | None:
         indices = _parse_ranges(spec, n)
         if not indices:
             console.print(
-                "[red]Rango inválido.[/red] Ejemplos válidos: [cyan]1-50[/cyan] · "
+                "[red]Invalid range.[/red] Valid examples: [cyan]1-50[/cyan] · "
                 "[cyan]1,5,7[/cyan] · [cyan]1-50,100-200[/cyan]"
             )
             continue
@@ -1088,14 +1088,14 @@ def _render_audios_page(
     table = Table(
         title=(
             f"Audios {start + 1}-{end} de {len(audios)}  "
-            f"[Pág {page + 1}/{total_pages}]"
+            f"[Page {page + 1}/{total_pages}]"
         ),
         show_lines=False,
     )
     table.add_column("#", justify="right", style="dim")
-    table.add_column("Título")
-    table.add_column("Duración", justify="right")
-    table.add_column("Tamaño", justify="right")
+    table.add_column("Title")
+    table.add_column("Duration", justify="right")
+    table.add_column("Size", justify="right")
     for idx in range(start, end):
         audio = audios[idx]
         table.add_row(
@@ -1115,35 +1115,35 @@ async def _preview_flow(
     player = find_simple_audio_player()
     if player is None:
         console.print(
-            "[yellow]No hay reproductor disponible para preview.[/yellow] "
-            "Instala uno: [cyan]ffplay[/cyan] (parte de ffmpeg) en Linux, "
+            "[yellow]No player available for preview.[/yellow] "
+            "Install one: [cyan]ffplay[/cyan] (parte of ffmpeg) en Linux, "
             "o usa macOS (que trae [cyan]afplay[/cyan])."
         )
         return
 
     selected: AudioItem | None = await _paginated_select(
-        "Selecciona un audio para previsualizar:",
+        "Select an audio to preview:",
         audios,
         make_choice=lambda a: questionary.Choice(
             title=f"{a.display_title[:60]}  ({_fmt_size(a.size_bytes)})",
             value=a,
         ),
-        back_label="↩️   Cancelar",
+        back_label="↩️   Cancel",
     )
 
     if selected is None:
         return
 
-    console.print(f"[bold]Descargando preview de:[/bold] {selected.display_title}")
+    console.print(f"[bold]Downloading preview of:[/bold] {selected.display_title}")
     try:
         preview_path = await download_preview(client_raw, channel.id, selected)
     except Exception as exc:
-        console.print(f"[red]Error al descargar preview:[/red] {exc}")
+        console.print(f"[red]Error downloading preview:[/red] {exc}")
         return
 
     console.print(
-        f"[dim]Reproduciendo {PREVIEW_SECONDS}s con {player.name} "
-        f"(Ctrl+C para detener)…[/dim]"
+        f"[dim]Playing {PREVIEW_SECONDS}s con {player.name} "
+        f"(Ctrl+C to stop)…[/dim]"
     )
     proc = await asyncio.create_subprocess_exec(
         *player.play_args(preview_path, duration_s=PREVIEW_SECONDS)
@@ -1172,10 +1172,10 @@ async def _ask_destination(
 ) -> Path | None:
     parent = last_parent if last_parent is not None else config.project_root
     default = parent / _safe_dirname(channel.name)
-    hint = "última carpeta usada" if last_parent is not None else "carpeta del proyecto"
-    console.print(f"[dim]Sugerencia ({hint}): {default}[/dim]")
+    hint = "last folder used" if last_parent is not None else "project folder"
+    console.print(f"[dim]Suggestion ({hint}): {default}[/dim]")
     answer = await questionary.path(
-        "Carpeta de descarga (Tab para autocompletar):",
+        "Download folder (Tab to autocomplete):",
         default=str(default),
         only_directories=True,
     ).ask_async()
@@ -1216,14 +1216,14 @@ def _fmt_size(size: int) -> str:
 async def _channel_player(channel: LibraryChannel, player: SimpleAudioPlayer) -> None:
     while True:
         action = await questionary.select(
-            f"🎧  Reproductor — {channel.channel_name}:",
+            f"🎧  Player — {channel.channel_name}:",
             choices=[
-                questionary.Choice("▶️   Reproducir uno (loop)", "one"),
+                questionary.Choice("▶️   Play one (loop)", "one"),
                 questionary.Choice(
-                    f"🔁  Reproducir todos en cola ({len(channel.tracks)} tracks)",
+                    f"🔁  Play all in queue ({len(channel.tracks)} tracks)",
                     "queue",
                 ),
-                questionary.Choice("↩️   Volver", "back"),
+                questionary.Choice("↩️   Back", "back"),
             ],
         ).ask_async()
 
@@ -1238,7 +1238,7 @@ async def _channel_player(channel: LibraryChannel, player: SimpleAudioPlayer) ->
 async def _play_one(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> None:
     while True:
         selected: LibraryTrack | None = await _paginated_select(
-            "Selecciona un audio (vuelve aquí al terminar):",
+            "Select an audio (returns here when done):",
             tracks,
             make_choice=lambda t: questionary.Choice(
                 title=f"{t.filename}  ({_fmt_size(t.size)})", value=t
@@ -1257,8 +1257,8 @@ async def _play_queue(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> 
     if not has_mpv():
         # Fallback secuencial sin sesión: requiere mpv para background
         console.print(
-            f"[bold]Reproduciendo cola ({total} tracks).[/bold] "
-            f"[dim]q = salir cola (sin mpv: sin background).[/dim]"
+            f"[bold]Playing queue ({total} tracks).[/bold] "
+            f"[dim]q = exit queue (without mpv: no background).[/dim]"
         )
         idx = 0
         while 0 <= idx < total:
@@ -1271,7 +1271,7 @@ async def _play_queue(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> 
             )
             result = await _simple_play_path(track.full_path, player, queue=queue)
             if result == "quit":
-                console.print("[yellow]Cola terminada.[/yellow]")
+                console.print("[yellow]Queue finished.[/yellow]")
                 return
             if result == "prev":
                 idx = max(0, idx - 1)
@@ -1283,8 +1283,8 @@ async def _play_queue(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> 
     existing = get_active_session()
     if existing is not None and existing.is_running:
         confirm = await questionary.confirm(
-            f"Ya hay una reproducción activa ({existing.now_playing or existing.label}). "
-            "¿Reemplazar?",
+            f"There is already an active playback ({existing.now_playing or existing.label}). "
+            "Replace?",
             default=True,
         ).ask_async()
         if not confirm:
@@ -1292,10 +1292,10 @@ async def _play_queue(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> 
         await existing.stop_and_wait()
         set_active_session(None)
 
-    label = f"Cola local ({total} tracks)"
+    label = f"Local queue ({total} tracks)"
     console.print(
-        f"[bold]Reproduciendo cola ({total} tracks).[/bold] "
-        f"[dim]n = siguiente · p = anterior · m = minimizar · q = salir cola.[/dim]"
+        f"[bold]Playing queue ({total} tracks).[/bold] "
+        f"[dim]n = next · p = previous · m = minimize · q = exit queue.[/dim]"
     )
     session = PlayerSession(label)
     session.start_local_queue(tracks)
@@ -1304,14 +1304,14 @@ async def _play_queue(tracks: list[LibraryTrack], player: SimpleAudioPlayer) -> 
         result = await session.attach()
         if result == "minimize":
             console.print(
-                "[dim]Reproduciendo en background. "
-                "Vuelve desde el menú principal.[/dim]"
+                "[dim]Playing in background. "
+                "Resume from main menu.[/dim]"
             )
             return
         # 'stopped' o 'ended' → cola consumida
         if not session.is_running:
             await asyncio.sleep(0)  # yield para que el task termine limpio
-        console.print("[yellow]Cola terminada.[/yellow]")
+        console.print("[yellow]Queue finished.[/yellow]")
     finally:
         if not session.is_running:
             set_active_session(None)
@@ -1419,14 +1419,14 @@ async def _play_with_mpv(
                 "mpv failed and no fallback player available: %s", exc
             )
             console.print(
-                f"[red]mpv falló:[/red] {exc}. Sin reproductor de respaldo."
+                f"[red]mpv failed:[/red] {exc}. No fallback player."
             )
             return "quit"
         logger.warning(
             "mpv failed, falling back to %s: %s", fallback.name, exc,
         )
         console.print(
-            f"[red]mpv falló:[/red] {exc}. Cayendo a [cyan]{fallback.name}[/cyan]."
+            f"[red]mpv failed:[/red] {exc}. Falling back to [cyan]{fallback.name}[/cyan]."
         )
         proc = await asyncio.create_subprocess_exec(*fallback.play_args(path))
         interrupted = await _wait_proc(proc)
@@ -1557,11 +1557,11 @@ def _render_player_panel(
 ) -> Panel:
     title = (metadata.title if metadata and metadata.title else path.stem)
     if paused:
-        icon = "[yellow]⏸  PAUSADO[/yellow]"
+        icon = "[yellow]⏸  PAUSED[/yellow]"
     elif streaming:
         icon = "[bold magenta]🌐 STREAMING[/bold magenta]"
     else:
-        icon = "[bold green]▶  REPRODUCIENDO[/bold green]"
+        icon = "[bold green]▶  PLAYING[/bold green]"
     header = f"{icon}  [bold]{title}[/bold]"
     if metadata and metadata.artist:
         header += f"  [dim]·[/dim]  [cyan]{metadata.artist}[/cyan]"
@@ -1595,7 +1595,7 @@ def _render_player_panel(
         pass
     info_line = "  [dim]" + "  ·  ".join(info_parts) + "[/dim]"
 
-    divider = "[dim]" + "─" * 20 + "[/dim] [bold]CONTROLES[/bold] [dim]" + "─" * 20 + "[/dim]"
+    divider = "[dim]" + "─" * 20 + "[/dim] [bold]CONTROLS[/bold] [dim]" + "─" * 20 + "[/dim]"
     SEP = "  [dim]·[/dim]  "
 
     def _key(label: str, dim: bool = False) -> str:
@@ -1608,36 +1608,36 @@ def _render_player_panel(
     if controls_enabled:
         # Línea 1 — Reproducción (siempre las mismas teclas)
         playback_line = (
-            "  [bold]Reproducción:[/bold]  "
-            f"{_key('Espacio')} pausa"
+            "  [bold]Playback:[/bold]  "
+            f"{_key('Space')} pause"
             f"{SEP}{_key('← →')} ±10s"
             f"{SEP}{_key('↑ ↓')} ±30s"
-            f"{SEP}{_key('0')} inicio"
+            f"{SEP}{_key('0')} start"
         )
 
         # Línea 2 — Navegación (depende de cola/minimize)
         nav_parts: list[str] = []
         if queue is not None:
-            nav_parts.append(f"{_key('n')} siguiente")
-            nav_parts.append(f"{_key('p')} anterior")
-            nav_parts.append(f"{_key('q')} salir cola")
+            nav_parts.append(f"{_key('n')} next")
+            nav_parts.append(f"{_key('p')} previous")
+            nav_parts.append(f"{_key('q')} exit queue")
         else:
-            nav_parts.append(f"{_key('n', dim=True)} [dim]siguiente (sin cola)[/dim]")
-            nav_parts.append(f"{_key('p', dim=True)} [dim]anterior (sin cola)[/dim]")
-            nav_parts.append(f"{_key('q')} salir")
+            nav_parts.append(f"{_key('n', dim=True)} [dim]next (no queue)[/dim]")
+            nav_parts.append(f"{_key('p', dim=True)} [dim]previous (no queue)[/dim]")
+            nav_parts.append(f"{_key('q')} exit")
         if minimizable:
-            nav_parts.append(f"{_key('m')} minimizar")
-        nav_parts.append(f"{_key('Ctrl+C')} forzar salir")
-        nav_line = "  [bold]Navegación: [/bold] " + SEP.join(nav_parts)
+            nav_parts.append(f"{_key('m')} minimize")
+        nav_parts.append(f"{_key('Ctrl+C')} force exit")
+        nav_line = "  [bold]Navigation: [/bold] " + SEP.join(nav_parts)
 
         controls_line = playback_line + "\n" + nav_line
     else:
         controls_line = (
-            "  [dim]Reproductor de respaldo sin controles activos. "
-            "Instala [bold]mpv[/bold] para controles completos "
+            "  [dim]Fallback player with no active controls. "
+            "Install [bold]mpv[/bold] for full controls "
             "(macOS: brew install mpv · Linux: apt/pacman/dnf install mpv).[/dim]\n"
-            "  [bold]Navegación: [/bold] "
-            f"{_key('Ctrl+C')} detener"
+            "  [bold]Navigation: [/bold] "
+            f"{_key('Ctrl+C')} stop"
         )
 
     body_lines = [header, info_line, "", progress_line]
@@ -1645,22 +1645,22 @@ def _render_player_panel(
     if queue is not None:
         body_lines.append("")
         queue_divider = (
-            "[dim]" + "─" * 22 + "[/dim] [bold]COLA[/bold] "
+            "[dim]" + "─" * 22 + "[/dim] [bold]QUEUE[/bold] "
             f"[dim]({queue.position}/{queue.total})[/dim] "
             "[dim]" + "─" * 22 + "[/dim]"
         )
         body_lines.append(queue_divider)
         if queue.previous_name:
-            body_lines.append(f"  [dim]↶ Anterior:[/dim] [italic dim]{queue.previous_name[:60]}[/italic dim]")
+            body_lines.append(f"  [dim]↶ Previous:[/dim] [italic dim]{queue.previous_name[:60]}[/italic dim]")
         else:
-            body_lines.append("  [dim]↶ Anterior: —[/dim]")
-        body_lines.append(f"  [bold green]▶ Ahora:[/bold green] [bold]{path.name[:60]}[/bold]")
+            body_lines.append("  [dim]↶ Previous: —[/dim]")
+        body_lines.append(f"  [bold green]▶ Now:[/bold green] [bold]{path.name[:60]}[/bold]")
         if queue.upcoming_names:
-            body_lines.append("  [dim]↷ Siguientes:[/dim]")
+            body_lines.append("  [dim]↷ Next:[/dim]")
             for i, name in enumerate(queue.upcoming_names, queue.position + 1):
                 body_lines.append(f"    [cyan]{i}.[/cyan] {name[:60]}")
         else:
-            body_lines.append("  [dim]↷ Siguientes: — (fin de cola)[/dim]")
+            body_lines.append("  [dim]↷ Next: — (end of queue)[/dim]")
 
     body_lines.extend(["", divider, controls_line])
     body = "\n".join(body_lines)
@@ -1697,7 +1697,7 @@ async def _wait_proc_with_progress(proc, duration: float) -> bool:
         TextColumn("[blue]▶"),
         BarColumn(bar_width=40),
         TextColumn("[cyan]{task.fields[elapsed]}[/cyan] / {task.fields[total_label]}"),
-        TextColumn("[dim](Ctrl+C para detener)[/dim]"),
+        TextColumn("[dim](Ctrl+C to stop)[/dim]"),
         console=console,
         transient=True,
     ) as progress:
@@ -1763,16 +1763,16 @@ async def _folder_player_flow(
     player = find_simple_audio_player()
     if player is None:
         console.print(
-            "[yellow]No hay reproductor de audio disponible.[/yellow] "
-            "Instala [cyan]mpv[/cyan] (recomendado) o [cyan]ffplay[/cyan] "
-            "(parte de ffmpeg). En Linux: [dim]apt install mpv[/dim] / "
+            "[yellow]No audio player available.[/yellow] "
+            "Install [cyan]mpv[/cyan] (recommended) or [cyan]ffplay[/cyan] "
+            "(parte of ffmpeg). En Linux: [dim]apt install mpv[/dim] / "
             "[dim]apt install ffmpeg[/dim]."
         )
         return None
 
     default = str(last_parent or config.project_root)
     answer = await questionary.path(
-        "Carpeta con música (Tab para autocompletar):",
+        "Music folder (Tab to autocomplete):",
         default=default,
         only_directories=True,
     ).ask_async()
@@ -1781,19 +1781,19 @@ async def _folder_player_flow(
 
     folder = Path(answer).expanduser().resolve()
     if not folder.is_dir():
-        console.print(f"[red]No es un directorio:[/red] {folder}")
+        console.print(f"[red]Not a directory:[/red] {folder}")
         return None
 
     recursive = await questionary.confirm(
-        "¿Buscar también en subcarpetas?", default=False
+        "Also search subfolders?", default=False
     ).ask_async()
 
     tracks = _scan_audio_folder(folder, recursive=bool(recursive))
     if not tracks:
-        console.print(f"[yellow]No se encontraron audios en {folder}[/yellow]")
+        console.print(f"[yellow]No audios found in {folder}[/yellow]")
         return folder
 
-    console.print(f"[bold]Encontrados {len(tracks)} audios.[/bold]")
+    console.print(f"[bold]Found {len(tracks)} audios.[/bold]")
     pseudo_channel = LibraryChannel(
         channel_id=0,
         channel_name=folder.name or str(folder),
@@ -1924,15 +1924,15 @@ def _scan_pending(state_dir: Path) -> list[PendingChannel]:
 
 
 def _render_pending_table(pending: list[PendingChannel]) -> None:
-    table = Table(title="Descargas pendientes por canal", show_lines=False)
-    table.add_column("Canal")
+    table = Table(title="Pending downloads per channel", show_lines=False)
+    table.add_column("Channel")
     table.add_column("Total", justify="right")
-    table.add_column("Completados", justify="right")
-    table.add_column("Pendientes", justify="right")
-    table.add_column("Parciales", justify="right")
+    table.add_column("Completed", justify="right")
+    table.add_column("Pending", justify="right")
+    table.add_column("Partial", justify="right")
     table.add_column("% local", justify="right")
-    table.add_column("Faltan", justify="right")
-    table.add_column("Última carpeta")
+    table.add_column("Missing", justify="right")
+    table.add_column("Last folder")
     for ch in pending:
         pct = f"{ch.completion_pct:.1f}%" if ch.total_in_state else "—"
         table.add_row(
@@ -1943,7 +1943,7 @@ def _render_pending_table(pending: list[PendingChannel]) -> None:
             str(ch.partial_count),
             pct,
             _fmt_size(ch.remaining_bytes),
-            ch.last_destination_dir or "[dim](no registrada)[/dim]",
+            ch.last_destination_dir or "[dim](not recorded)[/dim]",
         )
     console.print(table)
 
@@ -1956,22 +1956,22 @@ async def _resume_flow(
 ) -> Path | None:
     pending = _scan_pending(config.state_dir)
     if not pending:
-        console.print("[yellow]No hay descargas pendientes ni interrumpidas.[/yellow]")
+        console.print("[yellow]No pending or interrupted downloads.[/yellow]")
         return None
 
     _render_pending_table(pending)
 
     selected: PendingChannel | None = await _paginated_select(
-        "Selecciona un canal para reanudar:",
+        "Select a channel to resume:",
         pending,
         make_choice=lambda ch: questionary.Choice(
             title=(
                 f"{ch.channel_name}  "
-                f"({len(ch.tracks)} pendientes, {_fmt_size(ch.remaining_bytes)} faltan)"
+                f"({len(ch.tracks)} pending, {_fmt_size(ch.remaining_bytes)} missing)"
             ),
             value=ch,
         ),
-        back_label="↩️   Menú principal",
+        back_label="↩️   Main menu",
     )
 
     if selected is None:
@@ -1979,12 +1979,12 @@ async def _resume_flow(
 
     # Ofrecer sincronización con Telegram para detectar audios nuevos del canal
     sync = await questionary.confirm(
-        "¿Sincronizar con Telegram primero? (busca audios nuevos en el canal)",
+        "Sync with Telegram first? (looks for new audios in the channel)",
         default=True,
     ).ask_async()
     if sync:
         console.print(
-            f"[bold]Sincronizando «{selected.channel_name}» con Telegram…[/bold]"
+            f"[bold]Syncing «{selected.channel_name}» with Telegram…[/bold]"
         )
         logger.info("Syncing channel %s with Telegram", selected.channel_id)
         try:
@@ -1992,7 +1992,7 @@ async def _resume_flow(
         except Exception as exc:
             logger.exception("Sync failed: %s", exc)
             console.print(
-                f"[red]Error sincronizando:[/red] {exc}. Continuando con el state actual."
+                f"[red]Sync error:[/red] {exc}. Continuing with current state."
             )
         else:
             new_count, known_count = _sync_state_with_audios(
@@ -2006,12 +2006,12 @@ async def _resume_flow(
             )
             if new_count:
                 console.print(
-                    f"[green]✓[/green] {new_count} audios nuevos agregados al state, "
-                    f"{known_count} ya conocidos."
+                    f"[green]✓[/green] {new_count} new audios added to state, "
+                    f"{known_count} already known."
                 )
             else:
                 console.print(
-                    f"[dim]✓ No hay audios nuevos. Ya conocidos: {known_count}.[/dim]"
+                    f"[dim]✓ No new audios. Already known: {known_count}.[/dim]"
                 )
             # Re-leer pending para incluir los nuevos
             refreshed = _scan_pending(config.state_dir)
@@ -2022,8 +2022,8 @@ async def _resume_flow(
             if updated is not None:
                 selected = updated
             console.print(
-                f"[bold]Total a procesar:[/bold] {len(selected.tracks)} pendientes "
-                f"({_fmt_size(selected.remaining_bytes)} faltan)"
+                f"[bold]Total to process:[/bold] {len(selected.tracks)} pendientes "
+                f"({_fmt_size(selected.remaining_bytes)} missing)"
             )
 
     default_path = (
@@ -2032,7 +2032,7 @@ async def _resume_flow(
         else (last_parent or config.project_root) / _safe_dirname(selected.channel_name)
     )
     answer = await questionary.path(
-        "Carpeta de descarga (Tab para autocompletar):",
+        "Download folder (Tab to autocomplete):",
         default=str(default_path),
         only_directories=True,
     ).ask_async()
@@ -2042,7 +2042,7 @@ async def _resume_flow(
     destination.mkdir(parents=True, exist_ok=True)
 
     console.print(
-        f"[bold]Construyendo job desde el state local ({len(selected.tracks)} tracks)…[/bold]"
+        f"[bold]Building job from local state ({len(selected.tracks)} tracks)…[/bold]"
     )
     audios = [
         AudioItem(
@@ -2058,7 +2058,7 @@ async def _resume_flow(
     ]
 
     if manager is None:
-        console.print("[red]No hay manager disponible.[/red]")
+        console.print("[red]No manager available.[/red]")
         return None
 
     job = manager.enqueue(
@@ -2069,12 +2069,12 @@ async def _resume_flow(
     )
     total_size = sum(a.size_bytes for a in audios)
     console.print(
-        f"[green]✓[/green] Encolado job [bold]{job.job_id}[/bold]: "
+        f"[green]✓[/green] Enqueued job [bold]{job.job_id}[/bold]: "
         f"{len(audios)} audios ({_fmt_size(total_size)}) → {destination}"
     )
     console.print(
-        "[dim]Corre en background. Puedes seguir navegando o ver el estado en "
-        "[bold]Ver descargas en curso[/bold].[/dim]"
+        "[dim]Running in background. You can keep navigating or check status in "
+        "[bold]View ongoing downloads[/bold].[/dim]"
     )
     return destination.parent
 
@@ -2084,7 +2084,7 @@ async def _auto_resume_paused(
     manager: DownloadManager,
     config: Config,
 ) -> int:
-    """Detecta jobs en estado 'paused' (de sesiones anteriores) y los reencola.
+    """Detecta jobs en estado 'paused' (de sesiones previas) y los reencola.
     Si un job no tiene state local, lo reconstruye consultando Telegram.
     Devuelve cuántos jobs reactivó."""
     paused_jobs = [j for j in manager.jobs if j.state == "paused"]
@@ -2106,12 +2106,12 @@ async def _auto_resume_paused(
 
         ch = pending_by_id.get(old_job.channel_id)
 
-        # Si no hay tracks pendientes, decidir si consultar Telegram:
+        # Si no hay tracks pending, decidir si consultar Telegram:
         # solo si NO existe state file (job huérfano sin inventario local).
         state_file = config.state_dir / f"{old_job.channel_id}.json"
         if (ch is None or not ch.tracks) and not state_file.exists():
             console.print(
-                f"[dim]⏳ Reconstruyendo «{old_job.channel_name}» desde Telegram…[/dim]"
+                f"[dim]⏳ Rebuilding «{old_job.channel_name}» from Telegram…[/dim]"
             )
             logger.info(
                 "Rebuilding paused job %s from Telegram (no local state)",
@@ -2122,13 +2122,13 @@ async def _auto_resume_paused(
             except Exception as exc:
                 logger.exception("Failed to list audios: %s", exc)
                 console.print(
-                    f"[red]✗[/red] Falló reconstrucción de «{old_job.channel_name}»: {exc}"
+                    f"[red]✗[/red] Failed to rebuild «{old_job.channel_name}»: {exc}"
                 )
                 skipped += 1
                 continue
             if not current:
                 console.print(
-                    f"[yellow]✗[/yellow] «{old_job.channel_name}» no tiene audios en Telegram."
+                    f"[yellow]✗[/yellow] «{old_job.channel_name}» has no audios in Telegram."
                 )
                 skipped += 1
                 continue
@@ -2145,7 +2145,7 @@ async def _auto_resume_paused(
             )
             if ch is None or not ch.tracks:
                 console.print(
-                    f"[yellow]✗[/yellow] «{old_job.channel_name}» no tiene pendientes tras sync."
+                    f"[yellow]✗[/yellow] «{old_job.channel_name}» has no pending items after sync."
                 )
                 skipped += 1
                 continue
@@ -2184,13 +2184,13 @@ async def _auto_resume_paused(
 
     if resumed:
         suffix = (
-            f" ({rebuilt_from_telegram} reconstruida(s) desde Telegram)"
+            f" ({rebuilt_from_telegram} rebuilt from Telegram)"
             if rebuilt_from_telegram
             else ""
         )
         console.print(
-            f"[green]▶[/green] Reanudando [bold]{resumed}[/bold] descarga(s) "
-            f"pausada(s) automáticamente{suffix}."
+            f"[green]▶[/green] Resuming [bold]{resumed}[/bold] paused "
+            f"download(s) automatically{suffix}."
         )
         logger.info(
             "Auto-resumed %d paused jobs (rebuilt %d from Telegram, skipped %d)",
@@ -2211,21 +2211,21 @@ async def _show_daemon_jobs(config: Config) -> None:
         try:
             result = await send_command(sock, {"cmd": "status"})
         except IpcError as exc:
-            console.print(f"[red]No se puede consultar al daemon:[/red] {exc}")
+            console.print(f"[red]Cannot query daemon:[/red] {exc}")
             return
 
         jobs = result.get("jobs", [])
         if not jobs:
-            console.print("[yellow]El daemon no tiene jobs registrados.[/yellow]")
+            console.print("[yellow]Daemon has no jobs registered.[/yellow]")
             return
 
-        table = Table(title="Jobs del daemon", show_lines=False)
+        table = Table(title="Daemon jobs", show_lines=False)
         table.add_column("ID", style="bold")
-        table.add_column("Estado")
-        table.add_column("Canal")
+        table.add_column("State")
+        table.add_column("Channel")
         table.add_column("Progreso", justify="right")
         table.add_column("Bytes", justify="right")
-        table.add_column("Actual")
+        table.add_column("Current")
 
         for j in jobs:
             state_color = {
@@ -2251,11 +2251,11 @@ async def _show_daemon_jobs(config: Config) -> None:
         console.print(table)
 
         action = await questionary.select(
-            "Acción:",
+            "Action:",
             choices=[
-                questionary.Choice("🔄  Refrescar", "refresh"),
-                questionary.Choice("❌  Cancelar un trabajo", "cancel"),
-                questionary.Choice("↩️   Menú principal", "back"),
+                questionary.Choice("🔄  Refresh", "refresh"),
+                questionary.Choice("❌  Cancel a job", "cancel"),
+                questionary.Choice("↩️   Main menu", "back"),
             ],
         ).ask_async()
 
@@ -2268,23 +2268,23 @@ async def _show_daemon_jobs(config: Config) -> None:
                 j for j in jobs if j["state"] in ("running", "queued", "paused")
             ]
             if not cancellable:
-                console.print("[yellow]No hay jobs cancelables.[/yellow]")
+                console.print("[yellow]No cancellable jobs.[/yellow]")
                 continue
             choice = await questionary.select(
-                "Job a cancelar:",
+                "Job to cancel:",
                 choices=[
                     questionary.Choice(
                         f"{j['job_id']}  ·  {j.get('channel_name', '')[:30]}  ·  {j['state']}",
                         value=j["job_id"],
                     )
                     for j in cancellable
-                ] + [questionary.Choice("↩️   Cancelar acción", value=None)],
+                ] + [questionary.Choice("↩️   Cancel action", value=None)],
             ).ask_async()
             if not choice:
                 continue
             try:
                 await send_command(sock, {"cmd": "cancel", "job_id": choice})
-                console.print(f"[green]✓[/green] Solicitada cancelación de {choice}")
+                console.print(f"[green]✓[/green] Cancellation requested for {choice}")
             except IpcError as exc:
                 console.print(f"[red]Error:[/red] {exc}")
 
@@ -2292,18 +2292,18 @@ async def _show_daemon_jobs(config: Config) -> None:
 async def _jobs_view(manager: DownloadManager) -> None:
     while True:
         if not manager.jobs:
-            console.print("[yellow]No hay descargas en el historial.[/yellow]")
+            console.print("[yellow]No downloads in history.[/yellow]")
             return
 
         console.print(_render_jobs_renderable(manager))
 
         action = await questionary.select(
-            "Acción:",
+            "Action:",
             choices=[
-                questionary.Choice("🔄  Refrescar (snapshot)", "refresh"),
-                questionary.Choice("📺  Ver en vivo (Ctrl+C para volver)", "live"),
-                questionary.Choice("❌  Cancelar un trabajo", "cancel"),
-                questionary.Choice("↩️   Menú principal", "back"),
+                questionary.Choice("🔄  Refresh (snapshot)", "refresh"),
+                questionary.Choice("📺  Live view (Ctrl+C to return)", "live"),
+                questionary.Choice("❌  Cancel a job", "cancel"),
+                questionary.Choice("↩️   Main menu", "back"),
             ],
         ).ask_async()
 
@@ -2317,7 +2317,7 @@ async def _jobs_view(manager: DownloadManager) -> None:
         if action == "cancel":
             cancellable = [j for j in manager.jobs if j.state in ("queued", "running")]
             if not cancellable:
-                console.print("[yellow]No hay trabajos cancelables.[/yellow]")
+                console.print("[yellow]No cancellable jobs.[/yellow]")
                 continue
             choices = [
                 questionary.Choice(
@@ -2326,18 +2326,18 @@ async def _jobs_view(manager: DownloadManager) -> None:
                 )
                 for j in cancellable
             ]
-            choices.append(questionary.Choice("↩️   Cancelar", value=None))
+            choices.append(questionary.Choice("↩️   Cancel", value=None))
             target = await questionary.select(
-                "¿Cuál cancelar?", choices=choices
+                "Which to cancel?", choices=choices
             ).ask_async()
             if target:
                 manager.request_cancel(target)
-                console.print(f"[yellow]Cancelación solicitada para {target}.[/yellow]")
+                console.print(f"[yellow]Cancellation requested for {target}.[/yellow]")
 
 
 async def _live_jobs_loop(manager: DownloadManager) -> None:
     console.print(
-        "[dim]Refresh automático cada 0.5s. Ctrl+C para volver al menú.[/dim]"
+        "[dim]Auto refresh every 0.5s. Ctrl+C to return to menu.[/dim]"
     )
     try:
         with Live(
@@ -2369,21 +2369,21 @@ def _render_jobs_renderable(manager: DownloadManager) -> Group:
         f"[{color_map.get(state, 'white')}]{state}[/{color_map.get(state, 'white')}]: {n}"
         for state, n in counts.items()
     ]
-    summary = "  ·  ".join(summary_parts) or "sin jobs"
-    panel = Panel(summary, title="Resumen", border_style="dim")
+    summary = "  ·  ".join(summary_parts) or "no jobs"
+    panel = Panel(summary, title="Summary", border_style="dim")
     return Group(panel, _build_jobs_table(manager))
 
 
 def _build_jobs_table(manager: DownloadManager) -> Table:
-    table = Table(title="Descargas", show_lines=False)
+    table = Table(title="Downloads", show_lines=False)
     table.add_column("ID", style="dim")
-    table.add_column("Canal")
-    table.add_column("Estado")
-    table.add_column("Archivos", justify="right")
+    table.add_column("Channel")
+    table.add_column("State")
+    table.add_column("Files", justify="right")
     table.add_column("Bytes", justify="right")
-    table.add_column("Velocidad", justify="right")
+    table.add_column("Speed", justify="right")
     table.add_column("ETA", justify="right")
-    table.add_column("Actual")
+    table.add_column("Current")
 
     for job in manager.jobs:
         files_col = f"{job.progress_files}/{job.total_files}"
@@ -2449,7 +2449,7 @@ async def _paginated_select(
     title: str,
     items: list,
     make_choice,
-    back_label: str = "↩️   Volver",
+    back_label: str = "↩️   Back",
 ):
     """Selector que pagina cuando items >= PAGINATION_THRESHOLD."""
     if len(items) < PAGINATION_THRESHOLD:
@@ -2475,16 +2475,16 @@ async def _paginated_select(
 
         nav: list = []
         if page > 0:
-            nav.append(questionary.Choice("⏮  Página anterior", value="__prev__"))
+            nav.append(questionary.Choice("⏮  Previous page", value="__prev__"))
         if page < total_pages - 1:
-            nav.append(questionary.Choice("⏭  Página siguiente", value="__next__"))
+            nav.append(questionary.Choice("⏭  Next page", value="__next__"))
         if page > 0:
-            nav.append(questionary.Choice("⏪  Primera página", value="__first__"))
+            nav.append(questionary.Choice("⏪  First page", value="__first__"))
         if page < total_pages - 1:
-            nav.append(questionary.Choice("⏩  Última página", value="__last__"))
+            nav.append(questionary.Choice("⏩  Last page", value="__last__"))
         nav.append(questionary.Choice(back_label, value=None))
 
-        page_label = f"  [Pág {page + 1}/{total_pages} · items {start + 1}-{end} de {len(items)}]"
+        page_label = f"  [Page {page + 1}/{total_pages} · items {start + 1}-{end} of {len(items)}]"
 
         result = await questionary.select(
             title + page_label,
@@ -2600,11 +2600,11 @@ def _scan_library(state_dir: Path) -> list[LibraryChannel]:
 
 
 def _render_library_table(library: list[LibraryChannel]) -> None:
-    table = Table(title="📚 Biblioteca local", show_lines=False)
-    table.add_column("Canal")
+    table = Table(title="📚 Local library", show_lines=False)
+    table.add_column("Channel")
     table.add_column("Tracks", justify="right")
-    table.add_column("Tamaño", justify="right")
-    table.add_column("Carpeta")
+    table.add_column("Size", justify="right")
+    table.add_column("Folder")
     for ch in library:
         if not ch.destination_dirs:
             folder = "[dim]—[/dim]"
@@ -2613,7 +2613,7 @@ def _render_library_table(library: list[LibraryChannel]) -> None:
         else:
             folder = (
                 f"{ch.destination_dirs[0]} "
-                f"[dim](+{len(ch.destination_dirs) - 1} más)[/dim]"
+                f"[dim](+{len(ch.destination_dirs) - 1} more)[/dim]"
             )
         table.add_row(
             ch.channel_name,
@@ -2628,9 +2628,9 @@ async def _library_flow(config: Config) -> None:
     player = find_simple_audio_player()
     if player is None:
         console.print(
-            "[yellow]No hay reproductor de audio disponible.[/yellow] "
-            "Instala [cyan]mpv[/cyan] (recomendado, controles completos) "
-            "o [cyan]ffplay[/cyan] (parte de ffmpeg, fallback). "
+            "[yellow]No audio player available.[/yellow] "
+            "Install [cyan]mpv[/cyan] (recomendado, controles completos) "
+            "o [cyan]ffplay[/cyan] (parte of ffmpeg, fallback). "
             "[dim]macOS: brew install mpv · "
             "Linux: apt install mpv ffmpeg · "
             "Arch: pacman -S mpv ffmpeg[/dim]"
@@ -2641,26 +2641,26 @@ async def _library_flow(config: Config) -> None:
         library = _scan_library(config.state_dir)
         if not library:
             console.print(
-                "[yellow]No hay archivos descargados en la biblioteca local.[/yellow]"
+                "[yellow]No files downloaded in the local library.[/yellow]"
             )
             return
 
         _render_library_table(library)
 
         action = await questionary.select(
-            "Acción:",
+            "Action:",
             choices=[
                 questionary.Choice(
-                    f"🎲  Shuffle global ({SHUFFLE_DEFAULT_SIZE} al azar de toda la biblioteca)",
+                    f"🎲  Global shuffle ({SHUFFLE_DEFAULT_SIZE} random from the entire library)",
                     "shuffle_global",
                 ),
-                questionary.Choice("▶️   Reproducir un canal completo", "one_channel"),
+                questionary.Choice("▶️   Play a full channel", "one_channel"),
                 questionary.Choice(
-                    "🔀  Reproducir varios canales (cola mezclada)", "multi"
+                    "🔀  Play multiple channels (mixed queue)", "multi"
                 ),
-                questionary.Choice("🎵  Buscar y reproducir un track", "track"),
-                questionary.Choice("📂  Ver todas las carpetas", "folders"),
-                questionary.Choice("↩️   Menú principal", "back"),
+                questionary.Choice("🎵  Search and play a track", "track"),
+                questionary.Choice("📂  View all folders", "folders"),
+                questionary.Choice("↩️   Main menu", "back"),
             ],
         ).ask_async()
 
@@ -2685,13 +2685,13 @@ async def _shuffle_global(
 ) -> None:
     pairs, channels_in_sample = _sample_shuffle(library, n)
     if not pairs:
-        console.print("[yellow]La biblioteca no tiene tracks.[/yellow]")
+        console.print("[yellow]The library has no tracks.[/yellow]")
         return
     selected_tracks = [t for _, t in pairs]
     console.print(
-        f"[bold]🎲 Shuffle global:[/bold] {len(selected_tracks)} tracks aleatorios "
-        f"de [cyan]{channels_in_sample}[/cyan] canal(es) "
-        f"(de {len(library)} totales en biblioteca)."
+        f"[bold]🎲 Global shuffle:[/bold] {len(selected_tracks)} random tracks "
+        f"de [cyan]{channels_in_sample}[/cyan] channel(s) "
+        f"(de {len(library)} total in library)."
     )
     await _play_queue(selected_tracks, player)
 
@@ -2699,7 +2699,7 @@ async def _shuffle_global(
 def _sample_shuffle(
     library: list[LibraryChannel], n: int
 ) -> tuple[list[tuple[LibraryChannel, LibraryTrack]], int]:
-    """Toma N tracks aleatorios de toda la biblioteca.
+    """Toma N random tracks from toda la biblioteca.
     Devuelve (pairs, distinct_channel_count)."""
     all_pairs: list[tuple[LibraryChannel, LibraryTrack]] = []
     for ch in library:
@@ -2717,7 +2717,7 @@ async def _play_one_library_channel(
     library: list[LibraryChannel], player: SimpleAudioPlayer
 ) -> None:
     selected: LibraryChannel | None = await _paginated_select(
-        "Selecciona un canal:",
+        "Select a channel:",
         library,
         make_choice=lambda c: questionary.Choice(
             title=(
@@ -2726,7 +2726,7 @@ async def _play_one_library_channel(
             ),
             value=c,
         ),
-        back_label="↩️   Cancelar",
+        back_label="↩️   Cancel",
     )
     if selected is None:
         return
@@ -2738,7 +2738,7 @@ async def _play_multi_library_channels(
 ) -> None:
     if len(library) < 2:
         console.print(
-            "[yellow]Necesitas al menos 2 canales en la biblioteca.[/yellow]"
+            "[yellow]You need at least 2 channels in the library.[/yellow]"
         )
         return
 
@@ -2753,20 +2753,20 @@ async def _play_multi_library_channels(
         for ch in library
     ]
     selected_channels: list[LibraryChannel] = await questionary.checkbox(
-        "Selecciona canales (espacio para marcar, enter para confirmar):",
+        "Select channels (space to mark, enter to confirm):",
         choices=choices,
     ).ask_async()
 
     if not selected_channels or len(selected_channels) < 2:
-        console.print("[yellow]Selecciona al menos 2 canales.[/yellow]")
+        console.print("[yellow]Select at least 2 channels.[/yellow]")
         return
 
     order = await questionary.select(
-        "Orden de la cola mezclada:",
+        "Mixed queue order:",
         choices=[
-            questionary.Choice("🔀  Aleatorio (shuffle)", "shuffle"),
-            questionary.Choice("🔤  Alfabético por título", "alpha"),
-            questionary.Choice("📂  Por canal (uno tras otro)", "by_channel"),
+            questionary.Choice("🔀  Random (shuffle)", "shuffle"),
+            questionary.Choice("🔤  Alphabetical by title", "alpha"),
+            questionary.Choice("📂  By channel (one after another)", "by_channel"),
         ],
     ).ask_async()
 
@@ -2782,10 +2782,10 @@ async def _play_multi_library_channels(
 
     name = " + ".join(ch.channel_name for ch in selected_channels[:3])
     if len(selected_channels) > 3:
-        name += f" + {len(selected_channels) - 3} más"
+        name += f" + {len(selected_channels) - 3} more"
     console.print(
-        f"[bold]🔀 Cola mezclada:[/bold] {len(all_tracks)} tracks de "
-        f"{len(selected_channels)} canales — [cyan]{name}[/cyan]"
+        f"[bold]🔀 Mixed queue:[/bold] {len(all_tracks)} tracks from "
+        f"{len(selected_channels)} channels — [cyan]{name}[/cyan]"
     )
     await _play_queue(all_tracks, player)
 
@@ -2799,17 +2799,17 @@ async def _play_one_library_track(
             pairs.append((ch, t))
 
     if not pairs:
-        console.print("[yellow]La biblioteca no tiene tracks.[/yellow]")
+        console.print("[yellow]The library has no tracks.[/yellow]")
         return
 
     selected: tuple[LibraryChannel, LibraryTrack] | None = await _paginated_select(
-        "Buscar track (escribe para filtrar):",
+        "Search track (type to filter):",
         pairs,
         make_choice=lambda pair: questionary.Choice(
             title=f"{pair[1].filename[:55]}  [dim]· {pair[0].channel_name[:25]}[/dim]",
             value=pair,
         ),
-        back_label="↩️   Cancelar",
+        back_label="↩️   Cancel",
     )
     if selected is None:
         return
@@ -2818,10 +2818,10 @@ async def _play_one_library_track(
 
 
 def _show_library_folders(library: list[LibraryChannel]) -> None:
-    table = Table(title="📂 Carpetas por canal", show_lines=True)
-    table.add_column("Canal")
+    table = Table(title="📂 Folders per channel", show_lines=True)
+    table.add_column("Channel")
     table.add_column("Tracks", justify="right")
-    table.add_column("Carpetas")
+    table.add_column("Folders")
     for ch in library:
         folders = (
             "\n".join(ch.destination_dirs)
@@ -2838,9 +2838,9 @@ class Prefetch:
 
     El productor (`_prefetch_audio`) llena `queue` con chunks de bytes
     mientras hace `iter_download`. El consumidor (feed task del mpv del
-    siguiente track) los drena en orden. `None` en queue es sentinel de fin.
+    next track) los drena en orden. `None` en queue es sentinel de fin.
     `maxsize=128` limita ~32 MB en RAM (suficiente para audios <15 MB con
-    backpressure natural si el prefetch va más rápido que el playback).
+    backpressure natural si el prefetch va more rápido que el playback).
     """
     audio: AudioItem
     queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=128))
@@ -2889,7 +2889,7 @@ async def _prefetch_audio(
         try:
             prefetch.queue.put_nowait(None)
         except asyncio.QueueFull:
-            # Si está lleno, drenamos uno y reintentamos; el consumer ya no leerá más
+            # Si está lleno, drenamos uno y reintentamos; el consumer ya no leerá more
             try:
                 prefetch.queue.get_nowait()
                 prefetch.queue.put_nowait(None)
@@ -2925,8 +2925,8 @@ async def _stream_root_flow(client: TelegramAudioClient) -> None:
     delega en `_stream_online_flow`. Loop hasta que el usuario cancele."""
     if not has_mpv():
         console.print(
-            "[yellow]Streaming requiere mpv.[/yellow] "
-            "Instala con: [cyan]brew install mpv[/cyan]"
+            "[yellow]Streaming requires mpv.[/yellow] "
+            "Install con: [cyan]brew install mpv[/cyan]"
         )
         return
 
@@ -2936,7 +2936,7 @@ async def _stream_root_flow(client: TelegramAudioClient) -> None:
             return
         audios = await _list_audios(client, channel)
         if not audios:
-            console.print("[yellow]Este canal no tiene audios.[/yellow]")
+            console.print("[yellow]This channel has no audios.[/yellow]")
             continue
         await _stream_online_flow(client.raw, channel, audios)
 
@@ -2948,20 +2948,20 @@ async def _stream_online_flow(
 ) -> None:
     if not has_mpv():
         console.print(
-            "[yellow]Streaming requiere mpv.[/yellow] "
-            "Instala con: [cyan]brew install mpv[/cyan]"
+            "[yellow]Streaming requires mpv.[/yellow] "
+            "Install con: [cyan]brew install mpv[/cyan]"
         )
         return
 
     kind = await questionary.select(
-        "Stream online (sin guardar):",
+        "Online stream (without saving):",
         choices=[
-            questionary.Choice("🎵  Uno solo", "one"),
-            questionary.Choice("🔀  Selección (cola)", "some"),
+            questionary.Choice("🎵  Just one", "one"),
+            questionary.Choice("🔀  Selection (queue)", "some"),
             questionary.Choice(
-                f"📃  Todos en cola ({len(audios)})", "all"
+                f"📃  All in queue ({len(audios)})", "all"
             ),
-            questionary.Choice("↩️   Cancelar", "back"),
+            questionary.Choice("↩️   Cancel", "back"),
         ],
     ).ask_async()
 
@@ -2970,13 +2970,13 @@ async def _stream_online_flow(
 
     if kind == "one":
         selected: AudioItem | None = await _paginated_select(
-            "Selecciona un audio:",
+            "Select an audio:",
             audios,
             make_choice=lambda a: questionary.Choice(
                 title=f"{a.display_title[:60]}  ({_fmt_size(a.size_bytes)})",
                 value=a,
             ),
-            back_label="↩️   Cancelar",
+            back_label="↩️   Cancel",
         )
         if selected is None:
             return
@@ -3000,10 +3000,10 @@ async def _stream_queue_play(
     channel_id: int,
     audios: list[AudioItem],
 ) -> None:
-    """Reproduce una cola de audios online vía PlayerSession (puede minimizarse).
+    """Reproduce una cola de audios online vía PlayerSession (puede minimizese).
 
     El playback corre en task de larga vida; mpv + prefetch persisten al
-    minimizar. Política de 2ª reproducción: si hay sesión activa, pide
+    minimize. Política de 2ª reproducción: si hay sesión activa, pide
     confirmación para reemplazar.
     """
     total = len(audios)
@@ -3017,8 +3017,8 @@ async def _stream_queue_play(
     existing = get_active_session()
     if existing is not None and existing.is_running:
         confirm = await questionary.confirm(
-            f"Ya hay una reproducción activa "
-            f"({existing.now_playing or existing.label}). ¿Reemplazar?",
+            f"There is already an active playback "
+            f"({existing.now_playing or existing.label}). Replace?",
             default=True,
         ).ask_async()
         if not confirm:
@@ -3028,8 +3028,8 @@ async def _stream_queue_play(
 
     label = f"Stream ({total} tracks)"
     console.print(
-        f"[bold]Reproduciendo cola online ({total} tracks).[/bold] "
-        f"[dim]n = siguiente · p = anterior · m = minimizar · q = salir cola.[/dim]"
+        f"[bold]Playing online queue ({total} tracks).[/bold] "
+        f"[dim]n = next · p = previous · m = minimize · q = exit queue.[/dim]"
     )
     session = PlayerSession(label)
     session.start_stream_queue(client_raw, channel_id, audios)
@@ -3038,11 +3038,11 @@ async def _stream_queue_play(
         result = await session.attach()
         if result == "minimize":
             console.print(
-                "[dim]Stream en background. "
-                "Vuelve desde el menú principal.[/dim]"
+                "[dim]Stream in background. "
+                "Resume from main menu.[/dim]"
             )
             return
-        console.print("[yellow]Cola terminada.[/yellow]")
+        console.print("[yellow]Queue finished.[/yellow]")
     finally:
         if not session.is_running:
             set_active_session(None)

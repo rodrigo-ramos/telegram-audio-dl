@@ -197,7 +197,7 @@ class Database:
 
     @contextmanager
     def transaction(self):
-        """Bloque de transacción: commit al salir, rollback en excepción."""
+        """Bloque de transacción: commit al exit, rollback en excepción."""
         with self._lock:
             self._conn.execute("BEGIN")
             try:

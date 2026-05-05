@@ -118,4 +118,4 @@ def test_stop_daemon_returns_0_when_no_daemon(monkeypatch, capsys, tmp_path):
     rc = entrypoint.main(argv=["stop-daemon"])
     captured = capsys.readouterr()
     assert rc == 0
-    assert "No hay daemon" in captured.out
+    assert "No daemon" in captured.out

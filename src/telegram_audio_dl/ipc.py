@@ -91,7 +91,7 @@ class IpcServer:
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
-        # Limpia socket previo si existe (de un daemon anterior crasheado)
+        # Limpia socket previo si existe (de un daemon previous crasheado)
         if self._sock_path.exists():
             try:
                 self._sock_path.unlink()
@@ -193,7 +193,7 @@ async def send_command(sock_path: Path, message: dict[str, Any]) -> dict[str, An
     try:
         reader, writer = await asyncio.open_unix_connection(path=str(sock_path))
     except (FileNotFoundError, ConnectionRefusedError, OSError) as exc:
-        raise IpcError(f"daemon no disponible en {sock_path}: {exc}") from exc
+        raise IpcError(f"daemon not available at {sock_path}: {exc}") from exc
 
     try:
         payload = (json.dumps(message) + "\n").encode("utf-8")
@@ -202,15 +202,15 @@ async def send_command(sock_path: Path, message: dict[str, Any]) -> dict[str, An
 
         response_line = await reader.readline()
         if not response_line:
-            raise IpcError("daemon cerró conexión sin responder")
+            raise IpcError("daemon closed connection without responding")
 
         try:
             response = json.loads(response_line.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise IpcError(f"respuesta no-JSON: {exc}") from exc
+            raise IpcError(f"non-JSON response: {exc}") from exc
 
         if not response.get("ok"):
-            raise IpcError(response.get("error") or "error desconocido")
+            raise IpcError(response.get("error") or "unknown error")
         return response.get("result", {})
     finally:
         try:

@@ -72,7 +72,7 @@ class DownloadJob:
     @classmethod
     def from_dict(cls, data: dict) -> "DownloadJob":
         state = data.get("state", "done")
-        # jobs activos en sesión anterior → pausados (se retoman al iniciar)
+        # jobs activos en sesión previous → pausedos (se retoman al iniciar)
         if state in ("queued", "running", "interrupted"):
             state = "paused"
         return cls(
@@ -530,7 +530,7 @@ class DownloadManager:
     ) -> None:
         message = await self._client.get_messages(job.channel_id, ids=audio.message_id)
         if message is None or message.document is None:
-            raise RuntimeError("Mensaje no disponible")
+            raise RuntimeError("Message not available")
 
         offset = entry.downloaded_bytes if target_path.exists() else 0
         if offset > entry.size:

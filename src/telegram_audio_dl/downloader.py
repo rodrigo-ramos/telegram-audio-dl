@@ -176,7 +176,7 @@ class Downloader:
             self._store.state.channel_id, ids=audio.message_id
         )
         if message is None or message.document is None:
-            raise RuntimeError("Mensaje no disponible o sin documento.")
+            raise RuntimeError("Message not available or has no document.")
 
         offset = entry.downloaded_bytes if target_path.exists() else 0
         if offset > entry.size:
@@ -249,7 +249,7 @@ async def download_preview(
 ) -> Path:
     message = await client.get_messages(channel_id, ids=audio.message_id)
     if message is None or message.document is None:
-        raise RuntimeError("Mensaje no disponible o sin documento.")
+        raise RuntimeError("Message not available or has no document.")
 
     suffix = Path(_safe_filename(audio)).suffix or ".audio"
     fd, path_str = tempfile.mkstemp(prefix="tg-preview-", suffix=suffix)

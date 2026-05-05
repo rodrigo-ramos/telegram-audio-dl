@@ -1,7 +1,7 @@
 """Reproductor multimedia con controles via mpv IPC.
 
 mpv expone un socket Unix con protocolo JSON-line. Permite:
-- pausa/reanudar (set_property pause)
+- pause/reanudar (set_property pause)
 - seek relativo y absoluto
 - stop (quit)
 - consultar position, duration, volume
@@ -62,7 +62,7 @@ class MpvPlayer:
         mpv = shutil.which("mpv")
         if mpv is None:
             logger.error("mpv binary not found in PATH")
-            raise RuntimeError("mpv no encontrado en PATH")
+            raise RuntimeError("mpv not found in PATH")
         logger.info(
             "Starting mpv: path=%s socket=%s timeout=%.1fs",
             self._path, self._socket_path, timeout_seconds,
@@ -94,7 +94,7 @@ class MpvPlayer:
                     self._proc.returncode, stderr_msg,
                 )
                 raise RuntimeError(
-                    f"mpv terminó antes de crear el socket "
+                    f"mpv exited before creating the socket "
                     f"(rc={self._proc.returncode}). stderr: {stderr_msg}"
                 )
             await asyncio.sleep(0.1)
@@ -103,7 +103,7 @@ class MpvPlayer:
             timeout_seconds, self._socket_path,
         )
         raise RuntimeError(
-            f"mpv no creó el socket IPC en {timeout_seconds}s ({self._socket_path})"
+            f"mpv did not create the IPC socket within {timeout_seconds}s ({self._socket_path})"
         )
 
     async def _read_stderr(self, limit: int = 500) -> str:

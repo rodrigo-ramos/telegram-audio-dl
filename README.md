@@ -7,8 +7,6 @@ Interactive Python CLI to download audio/music files from Telegram channels you'
 
 > **Notice**: this project uses Telegram's **personal MTProto API** (Telethon). It is not a bot. It only downloads audio from channels/chats you already have access to with your account. Respect Telegram's Terms of Service and the copyright of the material.
 
-> **Language note**: the CLI menu and runtime messages are currently in Spanish. The codebase, docs, and this README are in English so they're usable internationally. PRs to internationalize the UI strings are welcome.
-
 ---
 
 ## Quick Start
@@ -274,17 +272,15 @@ Useful for one-shot tests, shared machines, or repos where `.env` only carries m
 
 ## Main menu flow
 
-The CLI labels are in Spanish (see language note at the top); functional descriptions in English follow each entry:
-
 ```
-Menú principal:
-> Buscar canales en Telegram          ← search/download from a new channel
-  Reanudar descargas pendientes        ← resume interrupted work
-  Ver descargas en curso               ← monitor active jobs
-  Biblioteca local                     ← downloaded channels (browse + play)
-  Reproducir música de una carpeta     ← any arbitrary FS folder
-  🌐 Reproducción online (streaming)   ← only if mpv is installed
-  Salir
+Main menu:
+> Search channels in Telegram          ← search/download from a new channel
+  Resume pending downloads             ← resume interrupted work
+  View ongoing downloads               ← monitor active jobs
+  Local library                        ← downloaded channels (browse + play)
+  Play music from a folder             ← any arbitrary FS folder
+  🌐 Online playback (streaming)       ← only if mpv is installed
+  Exit
 ```
 
 ### Search channels in Telegram
@@ -299,7 +295,7 @@ Menú principal:
 4. Confirm destination folder (default: `<project_root>/<channel>` or last used).
 5. Job enqueued → back to menu.
 
-> To play audios without saving, use the **🌐 Reproducción online (streaming)** option from the main menu — see [Online streaming](#online-streaming).
+> To play audios without saving, use the **🌐 Online playback (streaming)** option from the main menu — see [Online streaming](#online-streaming).
 
 ### Resume pending downloads
 
@@ -352,7 +348,7 @@ Consolidated view of **all downloaded channels** based on local state. It tells 
 Summary table:
 
 ```
-                 📚 Biblioteca local
+                 📚 Local library
 ┌─────────────────────────┬────────┬──────────┬─────────────────────────────────────────┐
 │ Canal                   │ Tracks │ Tamaño   │ Carpeta                                 │
 ├─────────────────────────┼────────┼──────────┼─────────────────────────────────────────┤
@@ -410,7 +406,7 @@ When the track is playing (with `mpv` installed):
 > This mapping follows the mpv/cmus convention: `q` is always "quit", never "skip".
 
 The panel shows:
-- State: `▶ REPRODUCIENDO` (local file), `🌐 STREAMING` (online), or `⏸ PAUSADO`.
+- State: `▶ PLAYING` (local file), `🌐 STREAMING` (online), or `⏸ PAUSED`.
 - Title · Artist · Album (from ID3 tags read with `mutagen`).
 - Bitrate · sample rate · channels · file size.
 - ASCII progress bar (40 chars) with real `MM:SS / MM:SS` (queried to mpv via IPC).
@@ -427,10 +423,10 @@ Plays audio **directly from Telegram without touching disk**. Bytes flow from `i
 
 ### How to enter
 
-It's a top-level option in the main menu: **🌐 Reproducción online (streaming)**. The option only appears if `mpv` is installed.
+It's a top-level option in the main menu: **🌐 Online playback (streaming)**. The option only appears if `mpv` is installed.
 
 ```
-Main menu → 🌐 Reproducción online (streaming)
+Main menu → 🌐 Online playback (streaming)
                      ↓
                Select channel (autocomplete)
                      ↓
@@ -518,12 +514,12 @@ telegram-audio-dl player           # local library only, no Telethon or daemon
 
 | Menu action | No daemon | Daemon running |
 |---|---|---|
-| 🔍 Buscar canales en Telegram | ✓ | ✗ ("stop the daemon first") |
-| 🌐 Reproducción online (streaming) | ✓ | ✗ (Telegram busy with daemon) |
-| ⏬ Reanudar descargas pendientes | ✓ | ✗ |
-| 📊 Ver descargas en curso | ✓ (local manager) | ✓ (via IPC to daemon) |
-| 📚 Biblioteca local | ✓ | ✓ |
-| 🎵 Reproducir música de carpeta | ✓ | ✓ |
+| 🔍 Search channels in Telegram | ✓ | ✗ ("stop the daemon first") |
+| 🌐 Online playback (streaming) | ✓ | ✗ (Telegram busy with daemon) |
+| ⏬ Resume pending downloads | ✓ | ✗ |
+| 📊 View ongoing downloads | ✓ (local manager) | ✓ (via IPC to daemon) |
+| 📚 Local library | ✓ | ✓ |
+| 🎵 Play music from a folder | ✓ | ✓ |
 
 When the CLI detects the daemon (`state/daemon.pid` exists and the PID is alive), it warns at startup and shows only the compatible options. To use Telegram options, run `telegram-audio-dl stop-daemon` first.
 
@@ -630,7 +626,7 @@ This requires the local library to be accessible (NFS / Syncthing / SSH FUSE / m
 
 **Concurrency**: 1 job at a time (avoids Telegram rate limits). Multiple enqueued jobs are processed FIFO.
 
-**Auto-resume**: when you close the CLI with active downloads (`queued` or `running`), they go to `paused` and persist in the SQLite `jobs` table. The next time you open and the manager connects to Telegram, `_auto_resume_paused` picks them up and re-queues them with their pending items — you'll see `▶ Reanudando N descarga(s) pausada(s) automáticamente.`. **No manual action needed.** If a paused job has no local state (e.g. enqueued and closed before the worker started), it's rebuilt from Telegram with `list_audios`.
+**Auto-resume**: when you close the CLI with active downloads (`queued` or `running`), they go to `paused` and persist in the SQLite `jobs` table. The next time you open and the manager connects to Telegram, `_auto_resume_paused` picks them up and re-queues them with their pending items — you'll see `▶ Resuming N paused download(s) automatically.`. **No manual action needed.** If a paused job has no local state (e.g. enqueued and closed before the worker started), it's rebuilt from Telegram with `list_audios`.
 
 ---
 
@@ -818,7 +814,7 @@ Each job is built with the **pending items at the moment of enqueue**. If you en
 
 **How do I download new music added to the channel after my first download?**
 
-In "Reanudar descargas pendientes" → pick channel → it asks `¿Sincronizar con Telegram?`. Say yes. It queries the channel, compares `message_id` by `message_id` against local state, and adds new entries. Those audios appear as pending in the job that gets enqueued. If you skip the sync, only what's already known is processed.
+In "Resume pending downloads" → pick channel → it asks `Sync with Telegram?`. Say yes. It queries the channel, compares `message_id` by `message_id` against local state, and adds new entries. Those audios appear as pending in the job that gets enqueued. If you skip the sync, only what's already known is processed.
 
 **Can I download from multiple channels in parallel?**
 
@@ -826,7 +822,7 @@ No. The worker processes one job at a time to avoid Telegram's `FloodWaitError`.
 
 **How do I cancel a download without closing the CLI?**
 
-Main menu → "Ver descargas en curso" → "Cancelar un trabajo" → pick the job. The cancel flag is honored on the next downloaded chunk.
+Main menu → "View ongoing downloads" → "Cancel a job" → pick the job. The cancel flag is honored on the next downloaded chunk.
 
 **Does the session expire?**
 
@@ -892,7 +888,7 @@ Arrows are already assigned to seek (±10s), which is the convention in mpv and 
 
 - **macOS and Linux**: both fully supported with auto-detection of the fallback player (`afplay` on macOS; `ffplay`/`mpg123`/`paplay` on Linux). Windows untested (`termios` is POSIX-only).
 - **One concurrent download**: to avoid Telegram rate limits.
-- **Streaming**: use **🌐 Reproducción online (streaming)** from the main menu (requires `mpv`). Bytes flow through RAM, never disk. Supports single track, selection, or full channel as a queue with auto-advance and next-track prefetch. Lookahead of 1 (no further prefetch to bound RAM). No cross-session resume — closing the CLI loses the queue.
+- **Streaming**: use **🌐 Online playback (streaming)** from the main menu (requires `mpv`). Bytes flow through RAM, never disk. Supports single track, selection, or full channel as a queue with auto-advance and next-track prefetch. Lookahead of 1 (no further prefetch to bound RAM). No cross-session resume — closing the CLI loses the queue.
 - **No live refresh in `_jobs_view` by default**: you have to enter "Live view" because `Live` and `questionary` don't coexist in the same TTY.
 - **`mpv` optional**: without it, no controls (afplay doesn't accept input).
 
@@ -904,11 +900,11 @@ Arrows are already assigned to seek (±10s), which is the convention in mpv and 
 
 ```
 1. telegram-audio-dl
-2. → 🔍 Buscar canales en Telegram
-3. → pick channel → "⬇️ Descargar todos"
+2. → 🔍 Search channels in Telegram
+3. → pick channel → "⬇️ Download all"
 4. → confirm destination folder
 5. → ✓ Enqueued (state pre-inventoried in SQLite, you're back at the menu)
-6. → 📊 Ver descargas en curso → "📺 Ver en vivo" to monitor
+6. → 📊 View ongoing downloads → "📺 Live view" to monitor
 7. Close the terminal whenever → job goes to "paused"
 ```
 
@@ -916,13 +912,13 @@ Arrows are already assigned to seek (±10s), which is the convention in mpv and 
 
 ```
 1. telegram-audio-dl
-2. → Buscar canales en Telegram (or any option that connects the manager)
-3. → "Conectando a Telegram…"
-4. → "▶ Reanudando 1 descarga(s) pausada(s) automáticamente."
+2. → Search channels in Telegram (or any option that connects the manager)
+3. → "Connecting to Telegram…"
+4. → "▶ Resuming 1 paused download(s) automatically."
 5. → you're back at the menu; downloads continue in the background
 ```
 
-To also resume with **new audios from the channel**, use "Reanudar descargas pendientes" → pick channel → "¿Sincronizar con Telegram?" → Yes. That looks for new audios in the channel and adds them to the state before re-enqueueing.
+To also resume with **new audios from the channel**, use "Resume pending downloads" → pick channel → "Sync with Telegram?" → Yes. That looks for new audios in the channel and adds them to the state before re-enqueueing.
 
 If you skip the sync, only the already-known pending items are re-enqueued. Useful when you're offline or know the channel didn't change.
 
@@ -930,7 +926,7 @@ If you skip the sync, only the already-known pending items are re-enqueued. Usef
 
 ```
 1. (you have a download running in the background)
-2. → 📚 Biblioteca local
+2. → 📚 Local library
 3. → 🎲 Shuffle global   (50 random across the entire library)
    or → ▶️ Reproducir un canal completo
 4. Plays with media panel + mpv controls
@@ -940,24 +936,24 @@ If you skip the sync, only the already-known pending items are re-enqueued. Usef
 ### Test before downloading
 
 ```
-1. → 🌐 Reproducción online (streaming)
+1. → 🌐 Online playback (streaming)
 2. → pick channel
-3. → 🎵 Uno solo → pick audio → plays instantly without touching disk
+3. → 🎵 Just one → pick audio → plays instantly without touching disk
 4. Ctrl+C / q to end → nothing remains locally
-5. If you like it: → 🔍 Buscar canales en Telegram → "Descargar todos" or "Seleccionar algunos"
+5. If you like it: → 🔍 Search channels in Telegram → "Download all" or "Select some"
 ```
 
 ### Sample several tracks of a new channel as a queue
 
 ```
-1. → 🌐 Reproducción online (streaming)
+1. → 🌐 Online playback (streaming)
 2. → pick channel
-3. → 🔀 Selección (cola)  →  mark 5-10 audios (space for checkbox, or ranges if >100)
+3. → 🔀 Selection (queue)  →  mark 5-10 audios (space for checkbox, or ranges if >100)
 4. The first plays with QUEUE panel showing ↶ Previous · ▶ Now · ↷ Next 6
 5. While playing, the next is being prefetched into RAM
 6. When the current ends: <1s start of next (thanks to prefetch)
 7. n = next  ·  p = previous  ·  q or Ctrl+C = exit the entire queue
-8. If you like the channel: → main menu → 🔍 Buscar canales → "Descargar todos"
+8. If you like the channel: → main menu → 🔍 Search channels → "Download all"
 ```
 
 ### Wipe everything and start fresh

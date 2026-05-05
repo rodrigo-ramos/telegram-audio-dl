@@ -37,8 +37,8 @@ def load_config() -> Config:
     ]
     if missing:
         raise RuntimeError(
-            f"Faltan variables en .env: {', '.join(missing)}. "
-            f"Copia .env.example a .env y completa los valores."
+            f"Missing variables in .env: {', '.join(missing)}. "
+            f"Copy .env.example to .env and fill in the values."
         )
 
     try:

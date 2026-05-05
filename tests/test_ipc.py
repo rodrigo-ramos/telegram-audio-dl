@@ -132,7 +132,7 @@ async def test_unknown_command_returns_error():
 @pytest.mark.asyncio
 async def test_connection_refused_when_no_server():
     sock = _short_socket_path()
-    with pytest.raises(IpcError, match="daemon no disponible"):
+    with pytest.raises(IpcError, match="daemon not available"):
         await send_command(sock, {"cmd": "ping"})
 
 

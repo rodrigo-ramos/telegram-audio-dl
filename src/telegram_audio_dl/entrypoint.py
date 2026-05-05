@@ -1,18 +1,18 @@
-"""Entry point con subcomandos. Reemplaza al `main()` simple de cli.py.
+"""Entry point with subcommands. Replaces the simple `main()` from cli.py.
 
-Subcomandos:
-    (sin args)      modo interactivo (cli.interactive_main)
-    daemon          corre el daemon headless en foreground (systemd Type=simple)
-    daemon --detach hace fork+setsid (POSIX) y el padre devuelve 0
-    status          imprime estado de jobs del daemon corriendo
-    status --watch  refresca cada N segundos (Ctrl+C para salir)
-    cancel <id>     cancela un job activo del daemon
-    stop-daemon     SIGTERM al daemon, espera shutdown
-    player          reproductor de biblioteca local (sin Telethon, sin daemon)
+Subcommands:
+    (no args)       interactive mode (cli.interactive_main)
+    daemon          runs the headless daemon in foreground (systemd Type=simple)
+    daemon --detach forks + setsid (POSIX); the parent returns 0
+    status          prints state of jobs of the running daemon
+    status --watch  refreshes every N seconds (Ctrl+C to exit)
+    cancel <id>     cancels an active job of the daemon
+    stop-daemon     SIGTERM to the daemon, waits for shutdown
+    player          local-library player (no Telethon, no daemon)
 
-Diseño: los subcomandos one-shot abren conexión IPC al daemon, hacen su
-trabajo y salen. Ninguno toca Telethon directamente, salvo el modo
-interactivo cuando NO hay daemon.
+Design: one-shot subcommands open an IPC connection to the daemon, do
+their work and exit. None of them touch Telethon directly, except the
+interactive mode when there is NO daemon running.
 """
 from __future__ import annotations
 
@@ -31,16 +31,16 @@ def _make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="telegram-audio-dl",
         description=(
-            "CLI de descarga + reproducción de audio de canales de Telegram. "
-            "Sin subcomando: modo interactivo. Subcomandos: daemon, status, "
+            "CLI for downloading and playing audio from Telegram channels. "
+            "No subcommand: interactive mode. Subcommands: daemon, status, "
             "cancel, stop-daemon, player."
         ),
     )
-    sub = parser.add_subparsers(dest="cmd", metavar="<comando>")
+    sub = parser.add_subparsers(dest="cmd", metavar="<command>")
 
     p_daemon = sub.add_parser(
         "daemon",
-        help="Corre el daemon de descargas headless (para systemd / homelab).",
+        help="Run the download daemon headless (for systemd / homelab).",
     )
     p_daemon.add_argument(
         "--detach",
@@ -51,7 +51,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser(
         "status",
-        help="Imprime el estado de jobs del daemon corriendo.",
+        help="Print state of jobs of the running daemon.",
     )
     p_status.add_argument(
         "--watch",
@@ -59,29 +59,29 @@ def _make_parser() -> argparse.ArgumentParser:
         nargs="?",
         const=2.0,
         default=None,
-        metavar="SEG",
-        help="Refresca cada SEG segundos (default 2.0). Ctrl+C para salir.",
+        metavar="SEC",
+        help="Refresh every SEC seconds (default 2.0). Ctrl+C to exit.",
     )
     p_status.add_argument(
         "--json",
         action="store_true",
-        help="Imprime JSON crudo (para scripts).",
+        help="Print raw JSON (for scripts).",
     )
 
     p_cancel = sub.add_parser(
         "cancel",
-        help="Cancela un job activo del daemon.",
+        help="Cancel an active job of the daemon.",
     )
-    p_cancel.add_argument("job_id", help="Identificador del job a cancelar.")
+    p_cancel.add_argument("job_id", help="Job identifier to cancel.")
 
     sub.add_parser(
         "stop-daemon",
-        help="Detiene el daemon limpiamente (jobs activos pasan a paused).",
+        help="Stop the daemon cleanly (active jobs become paused).",
     )
 
     sub.add_parser(
         "player",
-        help="Reproductor de biblioteca local. No abre Telethon ni IPC.",
+        help="Local library player. Does not open Telethon or IPC.",
     )
 
     return parser
@@ -91,12 +91,12 @@ def _print_status_table(result: dict[str, Any]) -> None:
     """Render simple sin rich para que funcione en daemon-less / scripts."""
     jobs = result.get("jobs", [])
     if not jobs:
-        print("Sin jobs registrados.")
+        print("No jobs registered.")
         return
     # Encabezado
     print(
-        f"{'JOB':<10} {'ESTADO':<10} {'CANAL':<30} "
-        f"{'PROGRESO':<14} {'ARCHIVO ACTUAL'}"
+        f"{'JOB':<10} {'STATE':<10} {'CHANNEL':<30} "
+        f"{'PROGRESS':<14} {'CURRENT FILE'}"
     )
     print("─" * 90)
     for j in jobs:
@@ -134,7 +134,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         while True:
             # Limpiar pantalla con ANSI clear
             print("\033[2J\033[H", end="")
-            print(f"[telegram-audio-dl status — refresh {interval:.1f}s — Ctrl+C para salir]\n")
+            print(f"[telegram-audio-dl status — refresh {interval:.1f}s — Ctrl+C to exit]\n")
             ok = fetch_and_print()
             if not ok:
                 return 1
@@ -151,7 +151,7 @@ def _cmd_cancel(args: argparse.Namespace) -> int:
     except IpcError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print(f"Cancelado: {result.get('cancelled')}")
+    print(f"Cancelled: {result.get('cancelled')}")
     return 0
 
 
@@ -161,32 +161,32 @@ def _cmd_stop_daemon(args: argparse.Namespace) -> int:
 
     pid = daemon_running_pid(config.state_dir)
     if pid is None:
-        print("No hay daemon corriendo.")
+        print("No daemon running.")
         return 0
 
     try:
         send_command_sync(sock, {"cmd": "stop"})
     except IpcError as exc:
-        print(f"ERROR enviando stop: {exc}", file=sys.stderr)
+        print(f"ERROR sending stop: {exc}", file=sys.stderr)
         return 1
 
     # Esperar a que el daemon limpie su PID file
-    print(f"Daemon (pid={pid}) está bajando. Esperando shutdown limpio…")
+    print(f"Daemon (pid={pid}) shutting down. Waiting for clean shutdown…")
     deadline = time.time() + 30.0
     while time.time() < deadline:
         if daemon_running_pid(config.state_dir) is None:
-            print("Daemon detenido.")
+            print("Daemon stopped.")
             return 0
         time.sleep(0.5)
-    print("WARN: daemon no terminó en 30s. Verifica con `status` o logs.",
+    print("WARN: daemon did not terminate in 30s. Check with `status` or logs.",
           file=sys.stderr)
     return 1
 
 
 def _cmd_player(args: argparse.Namespace) -> int:
-    """Atajo: abre el modo interactivo pero salta directo a Biblioteca local.
-    No requiere conexión a Telegram ni daemon corriendo."""
-    # Para no duplicar la lógica del menú "Biblioteca local", reusamos la
+    """Atajo: abre el modo interactivo pero salta directo a Local library.
+    No requiere conexión a Telegram ni daemon running."""
+    # Para no duplicar la lógica del menú "Local library", reusamos la
     # función `_library_flow` desde el modo interactivo. Pero `_library_flow`
     # solo necesita Config (state_dir), no Telethon.
     import asyncio
@@ -200,7 +200,7 @@ def _cmd_player(args: argparse.Namespace) -> int:
         asyncio.run(_library_flow(config))
         return 0
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrumpido.[/yellow]")
+        console.print("\n[yellow]Interrupted.[/yellow]")
         return 130
 
 
@@ -228,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "player":
         return _cmd_player(args)
 
-    parser.error(f"Comando desconocido: {args.cmd}")
+    parser.error(f"Unknown command: {args.cmd}")
     return 2
 
 

@@ -5,7 +5,7 @@ interacción ocurre vía socket Unix (`state/daemon.sock`).
 
 Lifecycle:
     1. PID file en `state/daemon.pid` con flock para evitar dos daemons.
-    2. Auto-resume de jobs `paused` de sesiones anteriores.
+    2. Auto-resume de jobs `paused` de sesiones previas.
     3. Loop async: IPC server + worker del DownloadManager + Telethon.
     4. SIGTERM/SIGINT → graceful shutdown:
        - Detiene IPC server (no admite nuevos comandos).
@@ -46,8 +46,8 @@ def _write_pid_file(state_dir: Path) -> Path:
     existing = daemon_running_pid(state_dir)
     if existing is not None:
         raise RuntimeError(
-            f"daemon ya corriendo (pid={existing}). "
-            f"Usa 'telegram-audio-dl stop-daemon' para detenerlo."
+            f"daemon already running (pid={existing}). "
+            f"Use 'telegram-audio-dl stop-daemon' to stop it."
         )
     pf = pid_path(state_dir)
     pf.parent.mkdir(parents=True, exist_ok=True)
@@ -93,7 +93,7 @@ def _audio_from_dict(d: dict[str, Any]) -> AudioItem:
 
 
 class Daemon:
-    """Estado del daemon: cliente Telethon, manager, IPC server."""
+    """State del daemon: cliente Telethon, manager, IPC server."""
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -190,7 +190,7 @@ class Daemon:
                         pass
 
     async def _auto_resume_paused(self) -> None:
-        """Reanuda jobs `paused` de sesiones anteriores consultando la tabla
+        """Reanuda jobs `paused` de sesiones previas consultando la tabla
         `files` por canal para reconstruir los pendientes. NO consulta Telegram
         (asume state local intacto). El sync de audios nuevos del canal queda
         a cargo del cliente interactivo o un comando explícito."""
@@ -249,7 +249,7 @@ class Daemon:
         if resumed:
             logger.info("Auto-resumed %d paused job(s)", resumed)
 
-    # ── Handlers de comandos IPC ──────────────────────────────────────────────
+    # ── Handlers of comandos IPC ──────────────────────────────────────────────
 
     async def _handle_command(self, message: dict[str, Any]) -> dict[str, Any]:
         cmd = message.get("cmd")
@@ -280,29 +280,29 @@ class Daemon:
 
     def _cmd_cancel(self, message: dict[str, Any]) -> dict[str, Any]:
         if self.manager is None:
-            raise RuntimeError("manager no disponible")
+            raise RuntimeError("manager not available")
         job_id = message["job_id"]
         ok = self.manager.request_cancel(job_id)
         if not ok:
-            raise RuntimeError(f"job no encontrado o no cancelable: {job_id}")
+            raise RuntimeError(f"job not found or not cancellable: {job_id}")
         return {"cancelled": job_id}
 
     async def _cmd_list_channels(self) -> dict[str, Any]:
         if self.client is None:
-            raise RuntimeError("cliente no inicializado")
+            raise RuntimeError("client not initialized")
         channels = await self.client.list_channels()
         return {"channels": [asdict(c) for c in channels]}
 
     async def _cmd_list_audios(self, message: dict[str, Any]) -> dict[str, Any]:
         if self.client is None:
-            raise RuntimeError("cliente no inicializado")
+            raise RuntimeError("client not initialized")
         channel_id = int(message["channel_id"])
         audios = await self.client.list_audios(channel_id)
         return {"audios": [asdict(a) for a in audios]}
 
     async def _cmd_enqueue(self, message: dict[str, Any]) -> dict[str, Any]:
         if self.manager is None:
-            raise RuntimeError("manager no disponible")
+            raise RuntimeError("manager not available")
         channel_id = int(message["channel_id"])
         channel_name = message["channel_name"]
         destination = Path(message["destination"])
@@ -328,7 +328,7 @@ def run_daemon(detach: bool = False) -> int:
     try:
         config = load_config()
     except RuntimeError as exc:
-        print(f"ERROR: configuración inválida: {exc}")
+        print(f"ERROR: invalid configuration: {exc}")
         return 2
 
     if detach:
