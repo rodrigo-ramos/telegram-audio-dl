@@ -3,110 +3,121 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-CLI interactivo en Python para descargar archivos de audio/música de canales de Telegram a los que estás suscrito y reproducirlos localmente. Las descargas corren en background, persisten checkpoint para retomarlas, el reproductor soporta controles multimedia (next/prev/seek/pause), y todo el playback puede minimizarse a "Now Playing" mientras navegas el menú.
+Interactive Python CLI to download audio/music files from Telegram channels you're subscribed to and play them locally. Downloads run in the background with checkpoint resume, the player supports media controls (next/prev/seek/pause), and playback can be minimized to "Now Playing" while you keep navigating the menu.
 
-> **Aviso**: este proyecto usa la **MTProto API personal** de Telegram (Telethon). No es un bot. Solo descarga audios de canales/chats a los que ya tienes acceso con tu cuenta. Respeta los términos de servicio de Telegram y el copyright del material.
+> **Notice**: this project uses Telegram's **personal MTProto API** (Telethon). It is not a bot. It only downloads audio from channels/chats you already have access to with your account. Respect Telegram's Terms of Service and the copyright of the material.
+
+> **Language note**: the CLI menu and runtime messages are currently in Spanish. The codebase, docs, and this README are in English so they're usable internationally. PRs to internationalize the UI strings are welcome.
 
 ---
 
-## Tabla de contenidos
+## Table of contents
 
-1. [Características](#características)
-2. [Requisitos](#requisitos)
-3. [Setup paso a paso](#setup-paso-a-paso)
-4. [Variables de entorno (`.env`)](#variables-de-entorno-env)
-5. [Estructura del proyecto](#estructura-del-proyecto)
-6. [Cómo correrlo](#cómo-correrlo)
-7. [Flujo del menú principal](#flujo-del-menú-principal)
-8. [Reproductor: controles](#reproductor-controles)
-9. [Streaming online](#streaming-online)
-10. [Modo daemon (descargas en background)](#modo-daemon-descargas-en-background)
-11. [Estados de los jobs](#estados-de-los-jobs)
-12. [Selección por rangos (multi-select)](#selección-por-rangos-multi-select)
-13. [Logs y troubleshooting](#logs-y-troubleshooting)
-14. [Archivos persistentes](#archivos-persistentes)
+1. [Features](#features)
+2. [Requirements](#requirements)
+3. [Step-by-step setup](#step-by-step-setup)
+4. [Environment variables (`.env`)](#environment-variables-env)
+5. [Project structure](#project-structure)
+6. [How to run it](#how-to-run-it)
+7. [Main menu flow](#main-menu-flow)
+8. [Player: controls](#player-controls)
+9. [Online streaming](#online-streaming)
+10. [Daemon mode (background downloads)](#daemon-mode-background-downloads)
+11. [Job states](#job-states)
+12. [Range selection (multi-select)](#range-selection-multi-select)
+13. [Logs and troubleshooting](#logs-and-troubleshooting)
+14. [Persistent files](#persistent-files)
 15. [Tests](#tests)
 16. [FAQ](#faq)
-17. [Limitaciones conocidas](#limitaciones-conocidas)
-18. [Operación día-a-día](#operación-día-a-día)
+17. [Known limitations](#known-limitations)
+18. [Day-to-day operation](#day-to-day-operation)
 
 ---
 
-## Características
+## Features
 
-- 🔍 **Listado de canales** suscritos con autocomplete (paginación si >100).
-- ⬇️  **Descargas en background** con `DownloadManager` async — un job a la vez para evitar rate limits.
-- 📊 **Pre-inventario al encolar**: el state SQLite se llena al momento de encolar, así nada se pierde si se interrumpe el CLI.
-- ⏸️ **Pausa al salir** + 🔁 **auto-reanudación** al volver a abrir (con fallback a Telegram si el state se borró).
-- 🌐 **Sincronización con Telegram** al reanudar para detectar audios nuevos del canal.
-- 🌐 **Streaming online** sin tocar disco (`iter_download` → `mpv` por stdin).
-- 🎚️  **Cola de streaming online** con auto-avance entre tracks y pre-fetch del siguiente en RAM (arranque <1s entre canciones).
-- 👀 **Vista previa** de 30s antes de bajar.
-- 📚 **Biblioteca local consultable** con tabla de canales, carpetas, tamaños, y reproducción de uno/varios canales o búsqueda de track específico.
-- 🎲 **Shuffle global** de 50 tracks aleatorios de toda la biblioteca.
-- 🔀 **Cola mezclada** entre múltiples canales con orden shuffle/alfabético/por canal.
-- 🎵 **Reproductor multimedia** con metadata ID3 (mutagen), barra animada, controles mpv (pause/seek/etc).
-- 📂 **Reproducir carpeta arbitraria** del filesystem (ajena al CLI).
-- 🗄️  **SQLite con WAL** para state + jobs (lecturas no bloquean writes).
-- 📝 **Logs rotativos** configurables con `LOG_LEVEL=DEBUG`.
+- 🔍 **Channel listing** of subscribed chats with autocomplete (paginated if >100).
+- ⬇️  **Background downloads** with an async `DownloadManager` — one job at a time to avoid rate limits.
+- 📊 **Pre-inventory on enqueue**: the SQLite state is populated at the moment of enqueueing, so nothing is lost if the CLI is interrupted.
+- ⏸️ **Pause on exit** + 🔁 **auto-resume** when reopened (with fallback to Telegram if the state was wiped).
+- 🌐 **Telegram sync on resume** to detect new audios added to the channel.
+- 🌐 **Online streaming** without touching disk (`iter_download` → `mpv` via stdin).
+- 🎚️  **Online streaming queue** with auto-advance between tracks and prefetch of the next track in RAM (<1s start time between songs).
+- 👀 **30-second preview** before downloading.
+- 📚 **Browsable local library** with a table of channels, folders, sizes, and playback of one/multiple channels or specific track lookup.
+- 🎲 **Global shuffle** of 50 random tracks across the entire library.
+- 🔀 **Mixed queue** across multiple channels with shuffle/alphabetical/by-channel ordering.
+- 🎵 **Media player** with ID3 metadata (mutagen), animated bar, mpv controls (pause/seek/etc).
+- 📂 **Play arbitrary folder** from the filesystem (independent of the CLI).
+- 🗄️  **SQLite with WAL** for state + jobs (reads don't block writes).
+- 📝 **Rotating logs** configurable with `LOG_LEVEL=DEBUG`.
 
 ---
 
-## Requisitos
+## Requirements
 
-Funciona en **macOS** y **Linux** (Windows no probado). El CLI detecta automáticamente qué reproductor usar según lo que esté instalado.
+Works on **macOS** and **Linux** (Windows untested). The CLI auto-detects which player to use based on what's installed.
 
-| Componente | Versión | macOS | Linux (Debian/Ubuntu) | Linux (Arch) |
+| Component | Version | macOS | Linux (Debian/Ubuntu) | Linux (Arch) |
 |---|---|---|---|---|
 | Python | ≥ 3.10 | `brew install python` | `apt install python3` | `pacman -S python` |
-| `mpv` (recomendado, controles completos) | cualquiera reciente | `brew install mpv` | `apt install mpv` | `pacman -S mpv` |
-| Reproductor de respaldo | — | `afplay` (nativo) | `apt install ffmpeg` (incluye `ffplay`) | `pacman -S ffmpeg` |
-| Cuenta Telegram | con número y 2FA opcional | tu propia cuenta | tu propia cuenta | tu propia cuenta |
-| App en my.telegram.org | api_id + api_hash | ver paso 1 abajo | ver paso 1 abajo | ver paso 1 abajo |
+| `mpv` (recommended, full controls) | any recent | `brew install mpv` | `apt install mpv` | `pacman -S mpv` |
+| Fallback player | — | `afplay` (built-in) | `apt install ffmpeg` (includes `ffplay`) | `pacman -S ffmpeg` |
+| Telegram account | with phone number, optional 2FA | your own | your own | your own |
+| App at my.telegram.org | api_id + api_hash | see step 1 below | see step 1 below | see step 1 below |
 
-### Detección automática del reproductor
+### Automatic player detection
 
-El CLI busca, en orden de prioridad:
+The CLI looks for, in priority order:
 
-1. **`mpv`** — controles completos (pause/seek/queue navigation). Recomendado en cualquier plataforma.
-2. **`afplay`** — nativo macOS, sin controles.
-3. **`ffplay`** — parte de ffmpeg, cross-platform, sin controles. Mejor opción Linux si no usas mpv.
-4. **`mpg123`** — solo mp3, ligero. Tercera opción Linux.
-5. **`paplay`** — PulseAudio, solo wav/raw. Cuarta opción Linux.
+1. **`mpv`** — full controls (pause/seek/queue navigation). Recommended on any platform.
+2. **`afplay`** — macOS built-in, no controls.
+3. **`ffplay`** — part of ffmpeg, cross-platform, no controls. Best Linux option if not using mpv.
+4. **`mpg123`** — mp3-only, lightweight. Third Linux option.
+5. **`paplay`** — PulseAudio, wav/raw only. Fourth Linux option.
 
-Sin ninguno de los anteriores: la opción **Biblioteca local** y **Vista previa** quedan deshabilitadas con un mensaje claro indicando qué instalar.
+Without any of the above: the **Local library** and **Preview** options are disabled with a clear message indicating what to install.
 
 ---
 
-## Setup paso a paso
+## Step-by-step setup
 
-### 1. Credenciales de Telegram
+### 1. Telegram credentials
 
-1. Entra a <https://my.telegram.org> con tu número.
-2. Te llega un código por Telegram (no SMS).
-3. Click en **API development tools**.
-4. Crea una aplicación:
+1. Go to <https://my.telegram.org> with your phone number.
+2. You'll receive a code via Telegram (not SMS).
+3. Click on **API development tools**.
+4. Create an application:
    - **App title**: `telegram-audio-dl`
    - **Short name**: `tgaudiodl`
    - **Platform**: Desktop
-5. Copia `api_id` (entero ~8 dígitos) y `api_hash` (string hex de 32 chars).
+5. Copy `api_id` (~8-digit integer) and `api_hash` (32-char hex string).
 
-### 2. Reproductor con controles (recomendado)
+### 2. Player with controls (recommended)
 
-| Sistema | Comando |
+| System | Command |
 |---|---|
 | macOS | `brew install mpv` |
 | Debian/Ubuntu | `sudo apt install mpv` |
 | Arch | `sudo pacman -S mpv` |
 | Fedora | `sudo dnf install mpv` |
 
-Sin `mpv`, el reproductor cae a un binario simple sin controles (solo `Ctrl+C` para detener):
-- En macOS, `afplay` (preinstalado).
-- En Linux, `ffplay` si tienes ffmpeg (`apt/pacman/dnf install ffmpeg`); si no, `mpg123` o `paplay`.
+Without `mpv`, the player falls back to a simple binary without controls (only `Ctrl+C` to stop):
+- On macOS, `afplay` (preinstalled).
+- On Linux, `ffplay` if you have ffmpeg (`apt/pacman/dnf install ffmpeg`); otherwise `mpg123` or `paplay`.
 
-### 3. Crear venv e instalar
+### 3. Create venv and install
 
-> Recomendación: crea el venv **fuera del SSD externo** si lo estás usando, porque macOS crea archivos AppleDouble (`._*`) en filesystems no-APFS que rompen `pip`.
+> Tip: create the venv **outside an external SSD** if you're using one, because macOS creates AppleDouble files (`._*`) on non-APFS filesystems and these break `pip`.
+
+Using `uv` (recommended — fast, includes lock file):
+
+```bash
+uv sync                                    # uses uv.lock for reproducible install
+uv sync --extra dev                        # also installs pytest
+```
+
+Using `pip`:
 
 ```bash
 python3 -m venv ~/.virtualenvs/telegram-audio-dl
@@ -114,11 +125,11 @@ python3 -m venv ~/.virtualenvs/telegram-audio-dl
 ~/.virtualenvs/telegram-audio-dl/bin/pip install -e "$PWD"
 ```
 
-### 4. Configurar `.env`
+### 4. Configure `.env`
 
 ```bash
 cp .env.example .env
-# Edita con tus valores
+# Edit with your values
 ```
 
 ```dotenv
@@ -129,93 +140,94 @@ TELEGRAM_SESSION=telegram_audio_dl
 DOWNLOAD_ROOT=
 ```
 
-### 5. Primer login
+### 5. First login
 
 ```bash
 ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 ```
 
-La primera vez:
-1. Te pide el **código** que llega por Telegram (chat oficial "Telegram", no SMS).
-2. Si tienes **2FA** activado, te pide la contraseña de cifrado.
-3. La sesión queda guardada en `telegram_audio_dl.session`. **No se vuelve a pedir** en futuras corridas.
+The first time:
+1. It asks for the **code** sent via Telegram (in the official "Telegram" chat, not SMS).
+2. If you have **2FA** enabled, it asks for the encryption password.
+3. The session is stored in `telegram_audio_dl.session`. **You won't be asked again** in future runs.
 
 ---
 
-## Variables de entorno (`.env`)
+## Environment variables (`.env`)
 
-| Variable | Obligatoria | Default | Descripción |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `TELEGRAM_API_ID` | sí | — | Entero. De my.telegram.org |
-| `TELEGRAM_API_HASH` | sí | — | String hex 32 chars. De my.telegram.org |
-| `TELEGRAM_PHONE` | sí | — | Formato internacional con `+` |
-| `TELEGRAM_SESSION` | no | `telegram_audio_dl` | Nombre del archivo de sesión Telethon |
-| `DOWNLOAD_ROOT` | no | `~/Downloads` | Carpeta raíz para descargas |
-| `LOG_LEVEL` | no | `INFO` | `DEBUG` para troubleshooting detallado |
+| `TELEGRAM_API_ID` | yes | — | Integer. From my.telegram.org |
+| `TELEGRAM_API_HASH` | yes | — | 32-char hex string. From my.telegram.org |
+| `TELEGRAM_PHONE` | yes | — | International format with `+` |
+| `TELEGRAM_SESSION` | no | `telegram_audio_dl` | Telethon session filename |
+| `DOWNLOAD_ROOT` | no | `~/Downloads` | Root folder for downloads |
+| `LOG_LEVEL` | no | `INFO` | `DEBUG` for detailed troubleshooting |
 
-⚠ **Nunca** committear el `.env` ni el `*.session` — ambos están en `.gitignore`.
+⚠ **Never** commit the `.env` or `*.session` — both are in `.gitignore`.
 
 ---
 
-## Estructura del proyecto
+## Project structure
 
 ```
 telegram-audio-dl/
-├── .env.example                  # plantilla — copia a .env
+├── .env.example                  # template — copy to .env
 ├── .gitignore
 ├── LICENSE                       # GPL v3
-├── pyproject.toml                # dependencias y entry point
-├── README.md                     # este archivo
-├── CLAUDE.md                     # guía para Claude Code
+├── pyproject.toml                # dependencies and entry point
+├── uv.lock                       # locked dependency versions (reproducible builds)
+├── README.md                     # this file
+├── CLAUDE.md                     # guide for Claude Code
 ├── docs/
-│   ├── credenciales-telegram.md  # cómo obtener credenciales
-│   └── escenarios.md             # matriz de escenarios + cobertura
+│   ├── credenciales-telegram.md  # how to obtain credentials
+│   └── escenarios.md             # scenario matrix + coverage
 ├── bin/
-│   └── aut-03-run.sh             # wrapper Vaultwarden/Bitwarden (opcional)
+│   └── aut-03-run.sh             # Vaultwarden/Bitwarden wrapper (optional)
 ├── scripts/
-│   ├── telegram-audio-dl.service # unit file systemd (Linux)
+│   ├── telegram-audio-dl.service # systemd unit file (Linux)
 │   └── com.telegram-audio-dl.plist # launchd agent (macOS)
 ├── tools/
-│   ├── kickoff_downloads.py      # script: descarga lista fija de canales
-│   └── migrate_json_to_sqlite.py # one-shot: state JSON viejo → SQLite
+│   ├── kickoff_downloads.py      # script: download a fixed list of channels
+│   └── migrate_json_to_sqlite.py # one-shot: legacy JSON state → SQLite
 ├── src/telegram_audio_dl/
 │   ├── __main__.py               # python -m telegram_audio_dl
-│   ├── entrypoint.py             # entry point del console script
-│   ├── cli.py                    # menús y flujos interactivos
-│   ├── config.py                 # carga de .env
-│   ├── client.py                 # wrapper Telethon
-│   ├── database.py               # wrapper SQLite (WAL, schema, migrations)
-│   ├── downloader.py             # descarga foreground (Downloader)
-│   ├── download_manager.py       # jobs en background (DownloadManager)
+│   ├── entrypoint.py             # console script entry point
+│   ├── cli.py                    # interactive menus and flows
+│   ├── config.py                 # .env loading
+│   ├── client.py                 # Telethon wrapper
+│   ├── database.py               # SQLite wrapper (WAL, schema, migrations)
+│   ├── downloader.py             # foreground download (Downloader)
+│   ├── download_manager.py       # background jobs (DownloadManager)
 │   ├── daemon.py                 # daemon mode + IPC
 │   ├── ipc.py                    # IPC server/client (Unix socket)
-│   ├── player.py                 # reproductor mpv via IPC
-│   ├── metadata.py               # mutagen para tags ID3/m4a/etc
-│   ├── state.py                  # FileEntry + StateStore (sobre SQLite)
-│   └── logging_setup.py          # configuración del logger
-└── tests/                        # 200+ tests pytest
+│   ├── player.py                 # mpv player via IPC
+│   ├── metadata.py               # mutagen for ID3/m4a/etc tags
+│   ├── state.py                  # FileEntry + StateStore (over SQLite)
+│   └── logging_setup.py          # logger configuration
+└── tests/                        # 200+ pytest tests
 ```
 
-Generados al primer uso (gitignored): `.env`, `*.session*`, `state/`.
+Generated on first use (gitignored): `.env`, `*.session*`, `state/`.
 
 ---
 
-## Cómo correrlo
+## How to run it
 
 ```bash
-# Entry point instalado
+# Installed entry point
 ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 
-# O sin instalar
+# Or without installing
 python -m telegram_audio_dl
 
-# Con logs verbosos
+# With verbose logs
 LOG_LEVEL=DEBUG ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 ```
 
-### Modo desarrollo (sin escribir secrets a `.env`)
+### Development mode (without writing secrets to `.env`)
 
-Si tu `.env` del repo es solo un placeholder/documentación y no quieres dejar credenciales en disco, exporta las variables en el shell antes de invocar el binario. `python-dotenv` **no sobreescribe** variables ya presentes en el environment, así que estas tienen prioridad:
+If your repo's `.env` is just a placeholder/documentation and you don't want to leave credentials on disk, export the variables in the shell before invoking the binary. `python-dotenv` **does not override** variables already present in the environment, so these take priority:
 
 ```bash
 export TELEGRAM_API_ID=...
@@ -224,12 +236,12 @@ export TELEGRAM_PHONE=+1234567890
 ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 ```
 
-Útil para pruebas one-shot, máquinas compartidas, o repos donde `.env` solo lleva metadata. Las variables viven solo en la sesión del shell — al cerrar la terminal desaparecen.
+Useful for one-shot tests, shared machines, or repos where `.env` only carries metadata. Variables live only in the shell session — when you close the terminal they're gone.
 
-> **Tip de seguridad**: si guardas las credenciales en un gestor (Vaultwarden, 1Password, Bitwarden CLI), puedes envolver los `export` en un script `scripts/dev-env.sh` (gitignored) que lea de ahí. Ejemplo con `bw` CLI:
+> **Security tip**: if you keep credentials in a password manager (Vaultwarden, 1Password, Bitwarden CLI), you can wrap the `export` calls in a `scripts/dev-env.sh` (gitignored) that reads from there. Example with `bw` CLI:
 >
 > ```bash
-> # scripts/dev-env.sh (NO commitear)
+> # scripts/dev-env.sh (do NOT commit)
 > export BW_SESSION=$(bw unlock --raw)
 > ITEM=$(bw get item "Telegram (AUT-03)" --session "$BW_SESSION")
 > export TELEGRAM_API_ID=$(echo $ITEM | jq -r '.fields[]|select(.name=="api_id").value')
@@ -237,67 +249,69 @@ export TELEGRAM_PHONE=+1234567890
 > export TELEGRAM_PHONE=$(echo $ITEM | jq -r '.login.password')
 > ```
 >
-> Luego: `source scripts/dev-env.sh && ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl`
+> Then: `source scripts/dev-env.sh && ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl`
 
 ---
 
-## Flujo del menú principal
+## Main menu flow
+
+The CLI labels are in Spanish (see language note at the top); functional descriptions in English follow each entry:
 
 ```
 Menú principal:
-> Buscar canales en Telegram          ← descargar de un canal nuevo
-  Reanudar descargas pendientes        ← retomar cosas interrumpidas
-  Ver descargas en curso               ← monitorear jobs activos
-  Biblioteca local                     ← canales descargados (consulta + reproducción)
-  Reproducir música de una carpeta     ← cualquier carpeta del FS arbitraria
-  🌐 Reproducción online (streaming)   ← solo si mpv está instalado
+> Buscar canales en Telegram          ← search/download from a new channel
+  Reanudar descargas pendientes        ← resume interrupted work
+  Ver descargas en curso               ← monitor active jobs
+  Biblioteca local                     ← downloaded channels (browse + play)
+  Reproducir música de una carpeta     ← any arbitrary FS folder
+  🌐 Reproducción online (streaming)   ← only if mpv is installed
   Salir
 ```
 
-### Buscar canales en Telegram
+### Search channels in Telegram
 
-1. Lista todos los canales/grupos suscritos (paginado de 50 si hay >100).
-2. Eliges uno → muestra los audios encontrados (filtrados por `InputMessagesFilterMusic`).
-3. Acción:
-   - **Descargar todos (con dedup)** — encola al manager el set completo.
-   - **Seleccionar algunos** — checkbox si <100 audios; rangos si más.
-   - **Vista previa (30s con afplay)** — preview corto sin descargar todo.
-   - **← Volver a canales**
-4. Confirmas carpeta destino (default: `<project_root>/<canal>` o última usada).
-5. Job encolado → vuelves al menú.
+1. Lists all subscribed channels/groups (paginated by 50 if >100).
+2. You pick one → it shows the audios found (filtered by `InputMessagesFilterMusic`).
+3. Action:
+   - **Download all (with dedup)** — enqueues the full set to the manager.
+   - **Select some** — checkbox if <100 audios; range selection if more.
+   - **Preview (30s with afplay)** — short preview without downloading the full file.
+   - **← Back to channels**
+4. Confirm destination folder (default: `<project_root>/<channel>` or last used).
+5. Job enqueued → back to menu.
 
-> Para reproducir audios sin guardarlos, usa la opción **🌐 Reproducción online (streaming)** del menú principal — ver sección [Streaming online](#streaming-online).
+> To play audios without saving, use the **🌐 Reproducción online (streaming)** option from the main menu — see [Online streaming](#online-streaming).
 
-### Reanudar descargas pendientes
+### Resume pending downloads
 
-1. Lista canales con archivos no completados.
-2. Tabla extendida con:
+1. Lists channels with non-completed files.
+2. Extended table showing:
 
-   | Columna | Significado |
+   | Column | Meaning |
    |---|---|
-   | Total | Audios conocidos del canal en el state local |
-   | Completados | Ya bajados al 100% (verificados en disco) |
-   | Pendientes | Sin completar (no iniciados + parciales) |
-   | Parciales | Subconjunto de Pendientes con `downloaded_bytes > 0` |
-   | % local | `Completados / Total` — qué tan avanzado vas |
-   | Faltan | Bytes restantes a descargar |
-   | Última carpeta | `destination_dir` registrado |
+   | Total | Audios known to the channel in local state |
+   | Completed | Already 100% downloaded (verified on disk) |
+   | Pending | Not finished (not started + partial) |
+   | Partial | Subset of Pending with `downloaded_bytes > 0` |
+   | % local | `Completed / Total` — how far along you are |
+   | Missing | Bytes left to download |
+   | Last folder | Recorded `destination_dir` |
 
-3. Eliges canal.
-4. **Sincronización opcional con Telegram** (default: sí):
-   - Consulta a Telegram el estado actual del canal con `iter_messages`.
-   - Compara cada `message_id` contra el state local.
-   - Agrega entries nuevas para los audios que el canal añadió desde tu última visita.
-   - Reporta: `✓ N audios nuevos agregados al state, M ya conocidos.`
-5. Confirma carpeta destino → encola.
+3. Pick channel.
+4. **Optional Telegram sync** (default: yes):
+   - Queries Telegram for current channel state via `iter_messages`.
+   - Compares each `message_id` against local state.
+   - Adds new entries for audios the channel added since your last visit.
+   - Reports: `✓ N audios nuevos agregados al state, M ya conocidos.`
+5. Confirm destination folder → enqueue.
 
-> **Por qué la sincronización**: los canales agregan música todos los días. Sin sincronizar, "Reanudar" solo procesa lo que ya conoces. Con sincronización, el state se actualiza primero para que los nuevos audios aparezcan como pendientes.
+> **Why sync**: channels add music every day. Without syncing, "Resume" only processes what you already know. With syncing, the state updates first so new audios show up as pending.
 
-> **Reanudación es instantánea**: construye los `AudioItem` desde el state local (`filename`, `size`) sin re-resolver mensajes ya conocidos. La sincronización es opcional — si la saltas, te ahorras la consulta pero no detectas audios nuevos.
+> **Resume is instant**: it builds the `AudioItem` list from local state (`filename`, `size`) without re-resolving messages already known. Sync is optional — skipping it saves the query but won't detect new audios.
 
-### Ver descargas en curso
+### View ongoing downloads
 
-Tabla con todos los jobs (queued, running, done, failed, cancelled, interrupted).
+Table with all jobs (queued, running, done, failed, cancelled, interrupted).
 
 ```
 Resumen: running: 1 · queued: 2 · done: 5
@@ -306,17 +320,17 @@ ID    Canal           Estado     Archivos                 Bytes               Ve
 a3f1  House Techno    running    36/14898 (canal: 15102)  654.4 MiB / 219 GiB 1.4 MiB/s   43:57:12  Track Name
 ```
 
-Acciones:
-- **Refrescar (snapshot)** — re-renderiza con datos actualizados.
-- **Ver en vivo (Ctrl+C para volver)** — modo Live con auto-refresh 2/s.
-- **Cancelar un trabajo** — marca un job como cancelado; el worker corta al siguiente chunk.
-- **← Menú principal**
+Actions:
+- **Refresh (snapshot)** — re-renders with updated data.
+- **Live view (Ctrl+C to return)** — Live mode with 2/s auto-refresh.
+- **Cancel a job** — marks a job as cancelled; the worker stops at the next chunk.
+- **← Main menu**
 
-### Biblioteca local
+### Local library
 
-Vista consolidada de **todos los canales descargados** según el state local. Te dice qué canal quedó en qué carpeta y permite reproducir desde ahí.
+Consolidated view of **all downloaded channels** based on local state. It tells you which channel ended up in which folder and lets you play from there.
 
-Tabla de resumen:
+Summary table:
 
 ```
                  📚 Biblioteca local
@@ -329,281 +343,281 @@ Tabla de resumen:
 └─────────────────────────┴────────┴──────────┴─────────────────────────────────────────┘
 ```
 
-Acciones:
+Actions:
 
-- **🎲 Shuffle global (50 al azar de toda la biblioteca)** — `random.sample` sin reemplazo de los tracks de **todos los canales**. Cola con panel multimedia, anterior/siguientes 6, controles mpv.
-- **▶️ Reproducir un canal completo** — cola del canal entero.
-- **🔀 Reproducir varios canales (cola mezclada)** — multi-select de canales + orden:
-  - Aleatorio (shuffle).
-  - Alfabético por filename.
-  - Por canal (uno tras otro).
-- **🎵 Buscar y reproducir un track** — selector con autocomplete sobre TODOS los tracks de TODOS los canales (paginado si >100).
-- **📂 Ver todas las carpetas** — tabla detallada con cada canal y sus rutas (útil si un canal quedó en varias carpetas distintas).
-- **↩️ Menú principal**.
+- **🎲 Global shuffle (50 random from the entire library)** — `random.sample` without replacement across **all channels**. Queue with media panel, previous/next 6, mpv controls.
+- **▶️ Play a full channel** — full channel queue.
+- **🔀 Play multiple channels (mixed queue)** — multi-select channels + ordering:
+  - Shuffle.
+  - Alphabetical by filename.
+  - By channel (one after another).
+- **🎵 Search and play a track** — autocomplete selector across ALL tracks of ALL channels (paginated if >100).
+- **📂 View all folders** — detailed table showing each channel and its paths (useful if you downloaded the same channel into multiple folders).
+- **↩️ Main menu**.
 
-> **Cómo se construye**: query SQL sobre `files` filtrando `completed = 1 AND destination_dir IS NOT NULL`, luego verifica que cada archivo siga existiendo en disco. Si bajaste a varias carpetas distintas el mismo canal, todas aparecen en `destination_dirs`.
+> **How it's built**: SQL query over `files` filtering `completed = 1 AND destination_dir IS NOT NULL`, then verifies each file still exists on disk. If you downloaded the same channel to several folders, all of them appear under `destination_dirs`.
 
-### Reproducir música de una carpeta
+### Play music from a folder
 
-Apunta a cualquier carpeta del filesystem (autocomplete con Tab).
-- Pregunta si recursivo o no.
-- Detecta extensiones: `.mp3 .m4a .mp4 .aac .ogg .oga .opus .flac .wav .aiff .aif`.
-- Acciones: "Reproducir uno (loop)" o "Reproducir todos en cola" (Ctrl+C corta cola).
+Point at any folder in the filesystem (autocomplete with Tab).
+- Asks if recursive or not.
+- Detects extensions: `.mp3 .m4a .mp4 .aac .ogg .oga .opus .flac .wav .aiff .aif`.
+- Actions: "Play one (loop)" or "Play all in queue" (Ctrl+C cuts the queue).
 
 ---
 
-## Reproductor: controles
+## Player: controls
 
-Cuando el track está sonando (con `mpv` instalado):
+When the track is playing (with `mpv` installed):
 
-| Tecla | Acción (playback local) | Acción (streaming online) |
+| Key | Action (local playback) | Action (online streaming) |
 |---|---|---|
-| `Espacio` | Pausa / Reanudar | Pausa / Reanudar |
-| `→` | +10 segundos | +10 segundos |
-| `←` | −10 segundos | −10 segundos |
-| `↑` | +30 segundos | +30 segundos |
-| `↓` | −30 segundos | −30 segundos |
-| `0` | Volver al inicio del track | Volver al inicio del track |
-| `n` | — | **Siguiente** (en cola) |
-| `p` | — | **Anterior** (en cola; en el primer track lo reinicia) |
-| `q` o `Q` | Saltar al siguiente / cerrar | **Salir de la cola** |
-| `Ctrl+C` | Cerrar | Salir de la cola |
+| `Space` | Pause / Resume | Pause / Resume |
+| `→` | +10 seconds | +10 seconds |
+| `←` | −10 seconds | −10 seconds |
+| `↑` | +30 seconds | +30 seconds |
+| `↓` | −30 seconds | −30 seconds |
+| `0` | Restart current track | Restart current track |
+| `n` | — | **Next** (in queue) |
+| `p` | — | **Previous** (in queue; on the first track, restarts it) |
+| `q` or `Q` | Skip to next / close | **Exit the queue** |
+| `Ctrl+C` | Close | Exit the queue |
 
-> **Diferencia local vs streaming**: el playback local solo tiene `q`/`Ctrl+C` para cerrar el track actual y avanzar. En streaming online separamos:
-> - `n` salta al siguiente sin esperar a que termine.
-> - `p` retrocede al anterior (cancela el prefetch actual y arranca uno del track previo).
-> - `q` y `Ctrl+C` salen de toda la cola, no solo del track.
+> **Local vs streaming difference**: local playback only has `q`/`Ctrl+C` to close the current track and advance. Online streaming separates:
+> - `n` skips to the next without waiting for it to finish.
+> - `p` goes back to the previous (cancels the current prefetch and starts one for the previous track).
+> - `q` and `Ctrl+C` exit the entire queue, not just the track.
 >
-> Este mapping sigue la convención de mpv/cmus: `q` siempre es "quit", nunca "skip".
+> This mapping follows the mpv/cmus convention: `q` is always "quit", never "skip".
 
-El panel muestra:
-- Estado: `▶ REPRODUCIENDO` (archivo local), `🌐 STREAMING` (online), o `⏸ PAUSADO`.
-- Título · Artista · Álbum (de los tags ID3 leídos con `mutagen`).
-- Bitrate · sample rate · canales · tamaño del archivo.
-- Barra de progreso ASCII (40 chars) con `MM:SS / MM:SS` real (consultado a mpv vía IPC).
-- Para colas: panel adicional con `↶ Anterior`, `▶ Ahora`, `↷ Siguientes 6`.
-- Línea de controles.
+The panel shows:
+- State: `▶ REPRODUCIENDO` (local file), `🌐 STREAMING` (online), or `⏸ PAUSADO`.
+- Title · Artist · Album (from ID3 tags read with `mutagen`).
+- Bitrate · sample rate · channels · file size.
+- ASCII progress bar (40 chars) with real `MM:SS / MM:SS` (queried to mpv via IPC).
+- For queues: extra panel with `↶ Previous`, `▶ Now`, `↷ Next 6`.
+- Controls line.
 
-Sin `mpv`: panel similar pero sin controles activos. Solo `Ctrl+C` para detener.
+Without `mpv`: similar panel but without active controls. Only `Ctrl+C` to stop.
 
 ---
 
-## Streaming online
+## Online streaming
 
-Reproduce audios **directamente desde Telegram sin tocar disco**. Los bytes pasan de `iter_download` al stdin de `mpv` por una `asyncio.Queue` en RAM. Requiere `mpv` instalado (`brew install mpv`).
+Plays audio **directly from Telegram without touching disk**. Bytes flow from `iter_download` to `mpv`'s stdin via an in-RAM `asyncio.Queue`. Requires `mpv` (`brew install mpv`).
 
-### Cómo entrar
+### How to enter
 
-Es una opción top-level del menú principal: **🌐 Reproducción online (streaming)**. La opción solo aparece si `mpv` está instalado.
+It's a top-level option in the main menu: **🌐 Reproducción online (streaming)**. The option only appears if `mpv` is installed.
 
 ```
-Menú principal → 🌐 Reproducción online (streaming)
+Main menu → 🌐 Reproducción online (streaming)
                      ↓
-               Selecciona canal (autocomplete)
+               Select channel (autocomplete)
                      ↓
-               Lista audios del canal
+               List channel audios
                      ↓
-               Submenú: Uno solo / Selección (cola) / Todos en cola / Cancelar
+               Submenu: One only / Selection (queue) / All in queue / Cancel
 ```
 
-Al cancelar dentro del submenú vuelves a la selección de canal; al cancelar la selección de canal vuelves al menú principal.
+Cancelling inside the submenu returns to channel selection; cancelling channel selection returns to the main menu.
 
-### Submenú
+### Submenu
 
-| Opción | Qué hace |
+| Option | What it does |
 |---|---|
-| 🎵 **Uno solo** | Selector paginado, eliges un audio, suena, termina. |
-| 🔀 **Selección (cola)** | Multi-select (checkbox si <100 audios; selección por rangos si más). Reproduce los seleccionados en orden de message_id, auto-avanzando. |
-| 📃 **Todos en cola** | Cola con todos los audios del canal, en orden. |
-| ↩️  Cancelar | Vuelve a la selección de canal. |
+| 🎵 **One only** | Paginated selector, you pick one audio, it plays, ends. |
+| 🔀 **Selection (queue)** | Multi-select (checkbox if <100 audios; range selection if more). Plays the selected ones in `message_id` order, auto-advancing. |
+| 📃 **All in queue** | Queue with all the channel's audios, in order. |
+| ↩️  Cancel | Returns to channel selection. |
 
-### Cola y pre-fetch del siguiente
+### Queue and next-track prefetch
 
-Las opciones "Selección" y "Todos en cola" usan `_stream_queue_play`, que:
+The "Selection" and "All in queue" options use `_stream_queue_play`, which:
 
-1. **Construye una `PlaybackQueue`** por cada track con `position`, `total`, `previous_name` y `upcoming_names[:6]` — el panel del reproductor muestra `↶ Anterior · ▶ Ahora · ↷ Siguientes`.
-2. **Lanza el track N** con su propia instancia de `mpv` (stdin pipe, socket IPC nuevo).
-3. **En paralelo, pre-descarga el track N+1** con `iter_download` a una `asyncio.Queue` en memoria (`Prefetch`).
-4. **Auto-avanza** al terminar el track N: el N+1 ya tiene la cabecera (y normalmente todo el archivo) bufferizado → arranque <1s. El N+2 entra como nuevo prefetch.
-5. **Cleanup**: al hacer `Ctrl+C`, `q` en el último track, o fin natural de cola, se cancelan todos los prefetch tasks pendientes.
+1. **Builds a `PlaybackQueue`** for each track with `position`, `total`, `previous_name`, and `upcoming_names[:6]` — the player panel shows `↶ Previous · ▶ Now · ↷ Next`.
+2. **Launches track N** with its own `mpv` instance (stdin pipe, new IPC socket).
+3. **In parallel, pre-downloads track N+1** with `iter_download` into an in-memory `asyncio.Queue` (`Prefetch`).
+4. **Auto-advances** when track N ends: N+1 already has the header (and usually the whole file) buffered → <1s start. N+2 enters as the new prefetch.
+5. **Cleanup**: on `Ctrl+C`, `q` on the last track, or natural end of queue, all pending prefetch tasks are cancelled.
 
-#### Pre-fetch: detalles técnicos
+#### Prefetch: technical details
 
-| Aspecto | Decisión | Por qué |
+| Aspect | Decision | Why |
 |---|---|---|
-| Lookahead | Solo el siguiente (N+1) | Audios típicos pesan 6-15 MB; cachear 2 sería >30 MB en RAM con un caso de uso (consumo) que no lo justifica. |
-| Tamaño de queue | `maxsize=128` chunks de 256 KB = ~32 MB tope | Backpressure natural si el prefetch va más rápido que el playback. |
-| Cancelación | `task.cancel()` + `await` en `_cancel_prefetch` | Idempotente; tolera `task=None` y tasks ya `done()`. |
-| Sentinel de fin | `None` encolado en el `finally` del prefetch | El feed task del mpv detecta `None` y cierra stdin → mpv termina. |
-| Mensaje faltante | `prefetch.failed = True` + sentinel inmediato | El feed termina sin escribir nada; mpv recibe stdin vacío y sale; la cola avanza al siguiente. |
+| Lookahead | Only the next (N+1) | Typical audios are 6-15 MB; caching 2 would be >30 MB in RAM for a use case (consumption) that doesn't justify it. |
+| Queue size | `maxsize=128` chunks of 256 KB = ~32 MB cap | Natural backpressure if prefetch outpaces playback. |
+| Cancellation | `task.cancel()` + `await` in `_cancel_prefetch` | Idempotent; tolerates `task=None` and tasks already `done()`. |
+| End sentinel | `None` enqueued in the prefetch's `finally` | The mpv feed task detects `None` and closes stdin → mpv terminates. |
+| Missing message | `prefetch.failed = True` + immediate sentinel | Feed ends without writing anything; mpv receives empty stdin and exits; queue advances to next. |
 
-#### Latencia esperada
+#### Expected latency
 
-- **Track 1**: igual que el stream single-track (depende del primer chunk de Telegram, ~1-3s).
-- **Tracks 2…N**: <1s entre el final del anterior y el inicio del siguiente, asumiendo que el prefetch terminó (audios pequeños) o que tiene cabecera suficiente para que mpv arranque.
-- Si la red es lenta y el prefetch no alcanzó, el feed task se queda esperando bytes → mpv pausa hasta que llegan. No hay error, solo latencia.
+- **Track 1**: same as single-track stream (depends on the first chunk from Telegram, ~1-3s).
+- **Tracks 2…N**: <1s between the end of the previous and the start of the next, assuming the prefetch finished (small audios) or has enough header for mpv to start.
+- If the network is slow and prefetch didn't catch up, the feed task waits for bytes → mpv pauses until they arrive. No error, just latency.
 
-### Diferencias con descargar y reproducir
+### Differences vs. download-and-play
 
-| | Descargar | Stream online |
+| | Download | Online stream |
 |---|---|---|
-| Tocar disco | sí (archivo final) | no (todo en RAM) |
-| Persistencia | DB SQLite + filesystem | ninguna; al cerrar, se va |
-| Resume | sí (offset persistente) | no (re-empieza desde 0) |
-| Concurrencia con otros jobs | el manager serializa 1 a la vez | streaming es independiente (no usa el manager) |
-| Cola | desde Biblioteca local | desde el menú del canal |
-| Pre-fetch | no aplica (descarga lineal) | sí (siguiente track en RAM) |
+| Touches disk | yes (final file) | no (everything in RAM) |
+| Persistence | SQLite DB + filesystem | none; closes when you exit |
+| Resume | yes (persistent offset) | no (restarts from 0) |
+| Concurrency with other jobs | manager serializes 1 at a time | streaming is independent (doesn't use the manager) |
+| Queue | from Local library | from the channel menu |
+| Prefetch | n/a (linear download) | yes (next track in RAM) |
 
 ---
 
-## Modo daemon (descargas en background)
+## Daemon mode (background downloads)
 
-Para que las descargas continúen aunque cierres la sesión SSH (homelab) o reinicies el CLI, ejecuta el binario como **daemon headless**. El daemon:
+To keep downloads running even if you close the SSH session (homelab) or restart the CLI, run the binary as a **headless daemon**. The daemon:
 
-- Es dueño de la sesión Telethon (`*.session` SQLite — solo un proceso a la vez puede abrirla).
-- Corre el `DownloadManager` y reanuda automáticamente jobs `paused`.
-- Expone un socket Unix (`state/daemon.sock`) con permisos `0600` para comandos vía IPC.
-- Acepta `SIGTERM`/`SIGINT` para shutdown limpio: jobs activos pasan a `paused` (no se pierde progreso).
+- Owns the Telethon session (`*.session` SQLite — only one process at a time can open it).
+- Runs the `DownloadManager` and auto-resumes `paused` jobs.
+- Exposes a Unix socket (`state/daemon.sock`) with `0600` permissions for IPC commands.
+- Accepts `SIGTERM`/`SIGINT` for clean shutdown: active jobs go to `paused` (no progress is lost).
 
-### Subcomandos
+### Subcommands
 
 ```bash
-telegram-audio-dl                  # modo interactivo (default)
-telegram-audio-dl daemon           # daemon en foreground (para systemd / launchd / nohup)
-telegram-audio-dl daemon --detach  # fork + setsid; el padre devuelve 0
-telegram-audio-dl status           # imprime tabla de jobs (requiere daemon)
-telegram-audio-dl status --watch   # refresca cada 2s (Ctrl+C para salir)
-telegram-audio-dl status --json    # salida JSON cruda (para scripts)
-telegram-audio-dl cancel <job_id>  # cancela un job activo
-telegram-audio-dl stop-daemon      # SIGTERM al daemon, espera shutdown limpio
-telegram-audio-dl player           # solo biblioteca local, sin Telethon ni daemon
+telegram-audio-dl                  # interactive mode (default)
+telegram-audio-dl daemon           # daemon in foreground (for systemd / launchd / nohup)
+telegram-audio-dl daemon --detach  # fork + setsid; parent returns 0
+telegram-audio-dl status           # prints job table (requires daemon)
+telegram-audio-dl status --watch   # refreshes every 2s (Ctrl+C to exit)
+telegram-audio-dl status --json    # raw JSON output (for scripts)
+telegram-audio-dl cancel <job_id>  # cancels an active job
+telegram-audio-dl stop-daemon      # SIGTERM to daemon, waits for clean shutdown
+telegram-audio-dl player           # local library only, no Telethon or daemon
 ```
 
-### Coexistencia daemon ↔ CLI interactivo
+### Daemon ↔ interactive CLI coexistence
 
-**Una sesión Telethon = un proceso.** Mientras el daemon corre, el CLI interactivo NO puede abrir Telethon:
+**One Telethon session = one process.** While the daemon is running, the interactive CLI cannot open Telethon:
 
-| Acción del menú | Sin daemon | Con daemon corriendo |
+| Menu action | No daemon | Daemon running |
 |---|---|---|
-| 🔍 Buscar canales en Telegram | ✓ | ✗ ("detén el daemon primero") |
-| 🌐 Reproducción online (streaming) | ✓ | ✗ (Telegram ocupado por daemon) |
+| 🔍 Buscar canales en Telegram | ✓ | ✗ ("stop the daemon first") |
+| 🌐 Reproducción online (streaming) | ✓ | ✗ (Telegram busy with daemon) |
 | ⏬ Reanudar descargas pendientes | ✓ | ✗ |
-| 📊 Ver descargas en curso | ✓ (manager local) | ✓ (vía IPC al daemon) |
+| 📊 Ver descargas en curso | ✓ (local manager) | ✓ (via IPC to daemon) |
 | 📚 Biblioteca local | ✓ | ✓ |
 | 🎵 Reproducir música de carpeta | ✓ | ✓ |
 
-Cuando el CLI detecta el daemon (`state/daemon.pid` existe y el PID está vivo), avisa al inicio y muestra solo las opciones compatibles. Para usar las opciones de Telegram, ejecuta `telegram-audio-dl stop-daemon` primero.
+When the CLI detects the daemon (`state/daemon.pid` exists and the PID is alive), it warns at startup and shows only the compatible options. To use Telegram options, run `telegram-audio-dl stop-daemon` first.
 
-### Cómo correr el daemon en homelab
+### How to run the daemon in a homelab
 
-#### Opción A: systemd (Linux)
+#### Option A: systemd (Linux)
 
 ```bash
-# 1. Copia y edita el template
+# 1. Copy and edit the template
 cp scripts/telegram-audio-dl.service ~/.config/systemd/user/
 $EDITOR ~/.config/systemd/user/telegram-audio-dl.service
-#    → ajusta WorkingDirectory, ExecStart y User=
+#    → adjust WorkingDirectory, ExecStart and User=
 
-# 2. Habilita e inicia
+# 2. Enable and start
 systemctl --user daemon-reload
 systemctl --user enable --now telegram-audio-dl
 systemctl --user status telegram-audio-dl
 
 # 3. Logs
 journalctl --user -u telegram-audio-dl -f
-# o el log file directo
+# or the log file directly
 tail -f state/logs/daemon.log
 ```
 
-#### Opción B: launchd (macOS)
+#### Option B: launchd (macOS)
 
 ```bash
 cp scripts/com.telegram-audio-dl.plist ~/Library/LaunchAgents/
 $EDITOR ~/Library/LaunchAgents/com.telegram-audio-dl.plist
-#    → ajusta paths absolutos
+#    → adjust absolute paths
 launchctl load ~/Library/LaunchAgents/com.telegram-audio-dl.plist
 
-# Estado
+# Status
 launchctl list | grep telegram-audio-dl
 
-# Detener
+# Stop
 launchctl unload ~/Library/LaunchAgents/com.telegram-audio-dl.plist
 ```
 
-#### Opción C: rápido sin servicio (para probar)
+#### Option C: quick, no service (for testing)
 
 ```bash
 nohup telegram-audio-dl daemon > /dev/null 2>&1 &
 disown
 ```
 
-### Comandos remotos / desde otra terminal
+### Remote commands / from another terminal
 
-Mientras el daemon corre en el homelab, puedes controlarlo desde otra terminal SSH:
+While the daemon runs in the homelab, you can control it from another SSH terminal:
 
 ```bash
-# Ver estado en tiempo real
+# Live status
 telegram-audio-dl status --watch 5
 
-# Cancelar un job
-telegram-audio-dl status                 # copia el job_id
+# Cancel a job
+telegram-audio-dl status                 # copy the job_id
 telegram-audio-dl cancel a3f1b2c4
 
-# JSON para scripts
+# JSON for scripts
 telegram-audio-dl status --json | jq '.jobs[] | select(.state=="running")'
 
-# Detener daemon limpiamente
+# Stop daemon cleanly
 telegram-audio-dl stop-daemon
 ```
 
-### Protocolo IPC
+### IPC protocol
 
-Socket Unix line-delimited JSON. Permisos `0600` (solo el dueño). Mensajes documentados en `src/telegram_audio_dl/ipc.py`. Ejemplo manual con `socat`:
+Line-delimited JSON over Unix socket. Permissions `0600` (owner only). Messages documented in `src/telegram_audio_dl/ipc.py`. Manual example with `socat`:
 
 ```bash
 echo '{"cmd":"status"}' | socat - UNIX-CONNECT:state/daemon.sock
 ```
 
-### Lifecycle / persistencia
+### Lifecycle / persistence
 
-- `state/daemon.pid`: PID del daemon vivo. Si está pero el proceso no existe, el siguiente arranque limpia el archivo stale.
-- `state/daemon.sock`: socket Unix. Se borra al shutdown limpio; archivos zombi de crashes se limpian automáticamente al próximo `start`.
-- `state/logs/daemon.log`: log separado del CLI interactivo (`telegram_audio_dl.log`). Rotación: 2 MiB × 5 backups.
-- `state/telegram_audio_dl.db`: la misma base SQLite (con WAL) que el CLI interactivo. El daemon escribe; el CLI puede leer en paralelo (WAL no bloquea reads).
+- `state/daemon.pid`: live daemon PID. If present but the process is gone, the next start cleans the stale file.
+- `state/daemon.sock`: Unix socket. Removed on clean shutdown; zombie files from crashes are cleaned automatically on next `start`.
+- `state/logs/daemon.log`: log separate from the interactive CLI (`telegram_audio_dl.log`). Rotation: 2 MiB × 5 backups.
+- `state/telegram_audio_dl.db`: same SQLite database (with WAL) as the interactive CLI. Daemon writes; CLI can read in parallel (WAL doesn't block reads).
 
-### Player en otra máquina
+### Player on another machine
 
-Caso de uso: daemon corriendo en homelab; quieres reproducir música de TU máquina (laptop) sin tocar el daemon:
+Use case: daemon running in homelab; you want to play music from YOUR machine (laptop) without disturbing the daemon:
 
 ```bash
-# En la laptop, sin Telethon ni daemon, solo biblioteca local:
+# On the laptop, no Telethon or daemon, only local library:
 telegram-audio-dl player
 ```
 
-Esto requiere que la biblioteca local esté accesible (NFS / Syncthing / SSH FUSE / copia manual). El subcomando `player` no abre Telethon ni IPC — solo lee `state/telegram_audio_dl.db` y reproduce con mpv/ffplay.
+This requires the local library to be accessible (NFS / Syncthing / SSH FUSE / manual copy). The `player` subcommand doesn't open Telethon or IPC — it only reads `state/telegram_audio_dl.db` and plays with mpv/ffplay.
 
 ---
 
-## Estados de los jobs
+## Job states
 
-| Estado | Color | Significado |
+| State | Color | Meaning |
 |---|---|---|
-| `queued` | gris | En cola, esperando al worker |
-| `running` | cyan | Descargando ahora |
-| `done` | verde | Completado |
-| `failed` | rojo | Error fatal — ver `error` y logs |
-| `cancelled` | amarillo | El user lo canceló explícitamente |
-| `paused` | magenta | El CLI se cerró mientras corría — **se retoma automáticamente** al volver a abrir y conectarse |
+| `queued` | gray | In queue, waiting for the worker |
+| `running` | cyan | Downloading now |
+| `done` | green | Completed |
+| `failed` | red | Fatal error — see `error` and logs |
+| `cancelled` | yellow | User cancelled it explicitly |
+| `paused` | magenta | The CLI was closed while running — **auto-resumes** when reopened and connected |
 
-**Concurrencia**: 1 job a la vez (evita rate limits de Telegram). Múltiples jobs encolados se procesan en orden FIFO.
+**Concurrency**: 1 job at a time (avoids Telegram rate limits). Multiple enqueued jobs are processed FIFO.
 
-**Auto-reanudación**: cuando cierras el CLI con descargas activas (`queued` o `running`), pasan a `paused` y se persisten en la tabla `jobs` de SQLite. La próxima vez que entres y se conecte el manager a Telegram, `_auto_resume_paused` los detecta y los reencola con sus pendientes — verás `▶ Reanudando N descarga(s) pausada(s) automáticamente.`. **No necesitas hacer nada manual.** Si un job paused no tiene state local (ej. fue encolado y cerrado antes de arrancar el worker), se reconstruye desde Telegram con `list_audios`.
+**Auto-resume**: when you close the CLI with active downloads (`queued` or `running`), they go to `paused` and persist in the SQLite `jobs` table. The next time you open and the manager connects to Telegram, `_auto_resume_paused` picks them up and re-queues them with their pending items — you'll see `▶ Reanudando N descarga(s) pausada(s) automáticamente.`. **No manual action needed.** If a paused job has no local state (e.g. enqueued and closed before the worker started), it's rebuilt from Telegram with `list_audios`.
 
 ---
 
-## Selección por rangos (multi-select)
+## Range selection (multi-select)
 
-Cuando un canal tiene >100 audios y eliges "Seleccionar algunos":
+When a channel has >100 audios and you choose "Select some":
 
 ```
 1500 audios disponibles. La tabla muestra los primeros 50; para ver más, escribe more.
@@ -612,90 +626,90 @@ Formato de rangos: 1-50,100-200,500  ·  all = todos  ·  vacío = cancelar
 ? Rangos (1-1500) o 'more' para siguiente página: ▌
 ```
 
-| Input | Resultado |
+| Input | Result |
 |---|---|
-| `1-100` | Items 1 al 100 |
-| `1-50,100-200` | Dos rangos disjuntos |
-| `5,7,12-20` | Mezcla de números sueltos y rangos |
-| `all` | Todos |
-| `more` | Siguiente página de la tabla |
-| `prev` | Página anterior |
-| vacío | Cancelar |
+| `1-100` | Items 1 to 100 |
+| `1-50,100-200` | Two disjoint ranges |
+| `5,7,12-20` | Mix of standalone numbers and ranges |
+| `all` | All |
+| `more` | Next table page |
+| `prev` | Previous page |
+| empty | Cancel |
 
 ---
 
-## Logs y troubleshooting
+## Logs and troubleshooting
 
-### Dónde están los logs
+### Where logs are
 
 ```
-state/logs/telegram_audio_dl.log     # log actual (max 2 MiB)
-state/logs/telegram_audio_dl.log.1   # rotación previa
+state/logs/telegram_audio_dl.log     # current log (max 2 MiB)
+state/logs/telegram_audio_dl.log.1   # previous rotation
 state/logs/telegram_audio_dl.log.2   # …
 ```
 
-### Niveles
+### Levels
 
 ```bash
-# Default: INFO (eventos clave)
+# Default: INFO (key events)
 ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 
-# Verboso: DEBUG (cada tecla del reproductor, cada chunk de descarga)
+# Verbose: DEBUG (every player keystroke, every download chunk)
 LOG_LEVEL=DEBUG ~/.virtualenvs/telegram-audio-dl/bin/telegram-audio-dl
 ```
 
-### Qué se loguea
+### What gets logged
 
-| Componente | INFO | DEBUG |
+| Component | INFO | DEBUG |
 |---|---|---|
-| `cli` | Inicio, opciones de menú, errores | Cada tecla presionada |
+| `cli` | Startup, menu options, errors | Every keystroke |
 | `client` | Connect, list_channels, list_audios | — |
 | `download_manager` | Job lifecycle (enqueued/running/done/failed) | — |
-| `downloader` | Inicio de cada archivo, errores | Offset al reanudar |
-| `player` | mpv start/stop, tiempo de socket, errores con stderr | Comandos enviados |
-| `telethon` (externo) | WARNING+ (FloodWait, sesión expirada) | — |
+| `downloader` | Each file start, errors | Offset on resume |
+| `player` | mpv start/stop, socket time, errors with stderr | Sent commands |
+| `telethon` (external) | WARNING+ (FloodWait, expired session) | — |
 
-### Diagnóstico rápido
+### Quick diagnosis
 
 ```bash
-# Últimas 50 líneas
+# Last 50 lines
 tail -50 state/logs/telegram_audio_dl.log
 
-# Solo errores
+# Errors only
 grep -E "ERROR|WARNING" state/logs/telegram_audio_dl.log
 
-# Eventos de un job específico
+# Events of a specific job
 grep "Job a3f1" state/logs/telegram_audio_dl.log
 
-# Stream en vivo
+# Live stream
 tail -f state/logs/telegram_audio_dl.log
 ```
 
-### Problemas comunes
+### Common problems
 
-| Síntoma | Causa probable | Fix |
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `sqlite3.OperationalError: database is locked` (telethon) | Otra instancia del CLI corriendo | `pkill -f telegram_audio_dl` y reintenta |
-| `mpv falló: mpv no creó el socket IPC` | Timeout o config de mpv | Ya arreglado a 10s. Pega el stderr del log si vuelve |
-| `RuntimeError: asyncio.run() cannot be called from a running event loop` | Mezclar questionary `.ask()` con async | Usar `.ask_async()` |
-| `WARNING: Ignoring invalid distribution -X` | Archivos AppleDouble en venv en SSD externo | Crear el venv en `~/.virtualenvs/` (volumen APFS) |
-| Streaming corta a media canción | Conexión Telegram inestable | Reintentar; el caché de mpv (10s) ayuda en recuperación corta |
-| Descarga se detiene sin error visible | El job pasó a `paused` por cierre del CLI | Auto-reanuda al volver a abrir y conectar |
-| Biblioteca aparece vacía aunque hay archivos | DB no migrada desde JSON viejo | `python tools/migrate_json_to_sqlite.py` |
+| `sqlite3.OperationalError: database is locked` (telethon) | Another CLI instance running | `pkill -f telegram_audio_dl` and retry |
+| `mpv falló: mpv no creó el socket IPC` | Timeout or mpv config | Already fixed at 10s. Paste the stderr from the log if it returns |
+| `RuntimeError: asyncio.run() cannot be called from a running event loop` | Mixing questionary `.ask()` with async | Use `.ask_async()` |
+| `WARNING: Ignoring invalid distribution -X` | AppleDouble files in venv on external SSD | Create the venv in `~/.virtualenvs/` (APFS volume) |
+| Streaming cuts mid-song | Unstable Telegram connection | Retry; mpv's 10s cache helps with short recovery |
+| Download stops with no visible error | Job went to `paused` due to CLI close | Auto-resumes on reopen and connect |
+| Library appears empty even with files present | DB not migrated from old JSON | `python tools/migrate_json_to_sqlite.py` |
 
 ---
 
-## Archivos persistentes
+## Persistent files
 
-| Archivo | Propósito | Tamaño típico |
+| File | Purpose | Typical size |
 |---|---|---|
-| `*.session` | Sesión Telethon (autenticación) | ~50 KB |
-| `state/telegram_audio_dl.db` | **SQLite**: canales, files, jobs | ~10-15 MB para 30K entries |
-| `state/logs/*.log` | Logs rotativos | hasta 12 MB (2 MB × 6 versiones) |
+| `*.session` | Telethon session (auth) | ~50 KB |
+| `state/telegram_audio_dl.db` | **SQLite**: channels, files, jobs | ~10-15 MB for 30K entries |
+| `state/logs/*.log` | Rotating logs | up to 12 MB (2 MB × 6 versions) |
 
-Todos están en `.gitignore`. Backup recomendado antes de borrar el `state/`.
+All are in `.gitignore`. Backup recommended before deleting `state/`.
 
-### Schema SQLite
+### SQLite schema
 
 ```sql
 channels(channel_id PK, channel_name, last_seen)
@@ -709,9 +723,9 @@ jobs(job_id PK, channel_id, channel_name, destination, state, ...,
      total_files, channel_total_files, error)
 ```
 
-Modo **WAL** activo: lecturas no bloquean al writer.
+**WAL** mode active: reads don't block the writer.
 
-### Inspección manual
+### Manual inspection
 
 ```bash
 sqlite3 state/telegram_audio_dl.db
@@ -724,13 +738,13 @@ sqlite> SELECT job_id, channel_name, state, completed_count || '/' || total_file
         FROM jobs ORDER BY enqueued_at DESC;
 ```
 
-### Migración desde JSON (si vienes de versión anterior)
+### Migration from JSON (if coming from older version)
 
 ```bash
 ~/.virtualenvs/telegram-audio-dl/bin/python tools/migrate_json_to_sqlite.py
 ```
 
-Lee `state/*.json` + `state/_jobs_history.json`, popula la DB y renombra los JSON a `.bak` por seguridad.
+Reads `state/*.json` + `state/_jobs_history.json`, populates the DB and renames the JSONs to `.bak` for safety.
 
 ---
 
@@ -740,196 +754,197 @@ Lee `state/*.json` + `state/_jobs_history.json`, popula la DB y renombra los JSO
 ~/.virtualenvs/telegram-audio-dl/bin/pytest tests/
 ```
 
-**216 tests** cubren:
+**220+ tests** cover:
 
-| Suite | Tests | Qué cubre |
+| Suite | Tests | What it covers |
 |---|---|---|
-| `test_config.py` | 5 | Carga `.env`, validación, defaults |
+| `test_config.py` | 5 | `.env` loading, validation, defaults |
 | `test_state.py` | 7 | StateStore/FileEntry, reconcile_with_disk |
-| `test_downloader_pure.py` | 10 | filename sanitizer, ext por mime, sha256, dedup |
-| `test_client_pure.py` | 7 | Parser de `DocumentAttributeAudio` y `DocumentAttributeFilename` |
+| `test_downloader_pure.py` | 10 | filename sanitizer, ext by mime, sha256, dedup |
+| `test_client_pure.py` | 7 | Parser of `DocumentAttributeAudio` and `DocumentAttributeFilename` |
 | `test_cli_format.py` | 12 | `_fmt_size`, `_fmt_duration`, `_safe_dirname` |
 | `test_metadata_and_format.py` | 10 | mutagen, `_fmt_mmss`, `_stringify_tag` |
-| `test_pagination.py` | 13 | `_parse_ranges` (rangos, dedupe, edge cases) |
+| `test_pagination.py` | 13 | `_parse_ranges` (ranges, dedupe, edge cases) |
 | `test_pending.py` | 9 | `_scan_pending` + `_sync_state_with_audios` |
 | `test_library.py` | 17 | `_scan_audio_folder`, `_scan_library`, `_sample_shuffle` |
-| `test_inventory_and_manager.py` | 16 | `Downloader.inventory`, `DownloadManager` (sin red) |
-| `test_history_and_player.py` | 23 | History persistence, paused/auto-resume, player panel, streaming single-track |
-| `test_logging_setup.py` | 8 | Niveles, no-duplicate handlers, telethon logger |
-| `test_scenarios.py` | 10 | E2E con mock Telethon: download, cancel, resume, FloodWait, dedup |
-| `test_streaming.py` | 12 | `Prefetch`, `_prefetch_audio`, cola con auto-avance + lookahead, cancelación, navegación prev/next, metadata de `PlaybackQueue` |
-| `test_paginated_select.py` | 9 | Guard contra el bug de questionary: filter string del usuario no matchante → None en vez de propagarse y romper |
-| `test_audio_player_detection.py` | 14 | Detector cross-platform (afplay/ffplay/mpg123/paplay), prioridad por OS, mapeo de duración a flags por binario |
-| `test_ipc.py` | 16 | Protocolo IPC daemon: server, cliente, errores, permisos 0600, concurrencia, detección de daemon vía PID file |
-| `test_entrypoint.py` | 12 | Subcomandos argparse (`daemon`, `status`, `cancel`, `stop-daemon`, `player`), dispatch, fallos graciosos sin daemon |
-| `tests/_db_helpers.py` | (helpers) | `seed_channel_files`, `seed_job` para fixtures |
+| `test_inventory_and_manager.py` | 16 | `Downloader.inventory`, `DownloadManager` (no network) |
+| `test_history_and_player.py` | 23 | History persistence, paused/auto-resume, player panel, single-track streaming |
+| `test_logging_setup.py` | 8 | Levels, no-duplicate handlers, telethon logger |
+| `test_scenarios.py` | 10 | E2E with mock Telethon: download, cancel, resume, FloodWait, dedup |
+| `test_streaming.py` | 12 | `Prefetch`, `_prefetch_audio`, queue with auto-advance + lookahead, cancellation, prev/next navigation, `PlaybackQueue` metadata |
+| `test_paginated_select.py` | 9 | Guard against questionary bug: non-matching user filter string → None instead of propagating and breaking |
+| `test_audio_player_detection.py` | 14 | Cross-platform detector (afplay/ffplay/mpg123/paplay), priority by OS, duration-to-flags mapping per binary |
+| `test_ipc.py` | 16 | Daemon IPC protocol: server, client, errors, 0600 permissions, concurrency, daemon detection via PID file |
+| `test_entrypoint.py` | 12 | argparse subcommands (`daemon`, `status`, `cancel`, `stop-daemon`, `player`), dispatch, graceful failures without daemon |
+| `test_daemon_session_tuning.py` | 4 | WAL tuning of the Telethon `.session` SQLite at daemon startup |
+| `tests/_db_helpers.py` | (helpers) | `seed_channel_files`, `seed_job` for fixtures |
 
-**Tiempo total: ~0.6 segundos**.
+**Total time: ~2 seconds**.
 
-No están cubiertos automáticamente (requieren entorno real):
-- `list_channels`, `list_audios`, `iter_download` con red Telegram.
-- Flujo interactivo de questionary (necesita TTY).
-- mpv binario para controles del reproductor.
-- Streaming end-to-end (requiere mpv + red). Los tests usan `_stream_one_track` mockeado para verificar la orquestación de la cola sin levantar mpv.
+Not covered automatically (require live environment):
+- `list_channels`, `list_audios`, `iter_download` against real Telegram network.
+- Interactive questionary flow (needs TTY).
+- mpv binary for player controls.
+- End-to-end streaming (requires mpv + network). Tests use a mocked `_stream_one_track` to verify queue orchestration without spawning mpv.
 
-Para ejecutarlos manualmente, ver [`docs/escenarios.md`](docs/escenarios.md).
+For manual execution, see [`docs/escenarios.md`](docs/escenarios.md).
 
 ---
 
 ## FAQ
 
-**¿Por qué un job dice `36/14898` y otro `181/15102` para el mismo canal?**
+**Why does one job say `36/14898` and another `181/15102` for the same channel?**
 
-Cada job se construye con los **pendientes en el momento de encolar**. Si encolaste 15102 y descargaste 181 antes de interrumpir, al reanudar quedan 14921. Los completados anteriores no se reencolan (dedup). La columna "Archivos" muestra `progreso/total_de_este_job (canal: total_absoluto)` para evitar la confusión.
+Each job is built with the **pending items at the moment of enqueue**. If you enqueued 15102 and downloaded 181 before interrupting, on resume there are 14921 left. Previously completed items are not re-enqueued (dedup). The "Files" column shows `progress/total_in_this_job (channel: absolute_total)` to avoid confusion.
 
-**¿Cómo bajo música nueva que se agregó al canal después de mi primera descarga?**
+**How do I download new music added to the channel after my first download?**
 
-Al elegir "Reanudar descargas pendientes" → eliges canal → te pregunta `¿Sincronizar con Telegram?`. Di que sí. Consulta el canal, compara `message_id` por `message_id` contra el state local, y agrega entries nuevas. Esos audios aparecen como pendientes en el job que se va a encolar. Si saltas la sincronización, solo procesa lo que ya conoces.
+In "Reanudar descargas pendientes" → pick channel → it asks `¿Sincronizar con Telegram?`. Say yes. It queries the channel, compares `message_id` by `message_id` against local state, and adds new entries. Those audios appear as pending in the job that gets enqueued. If you skip the sync, only what's already known is processed.
 
-**¿Puedo descargar de varios canales en paralelo?**
+**Can I download from multiple channels in parallel?**
 
-No. El worker procesa un job a la vez para evitar `FloodWaitError` de Telegram. Si encolas dos, el segundo espera al primero.
+No. The worker processes one job at a time to avoid Telegram's `FloodWaitError`. If you enqueue two, the second waits for the first.
 
-**¿Cómo cancelo una descarga sin cerrar el CLI?**
+**How do I cancel a download without closing the CLI?**
 
-Menú principal → "Ver descargas en curso" → "Cancelar un trabajo" → eliges el job. El cancelflag se respeta al siguiente chunk descargado.
+Main menu → "Ver descargas en curso" → "Cancelar un trabajo" → pick the job. The cancel flag is honored on the next downloaded chunk.
 
-**¿La sesión expira?**
+**Does the session expire?**
 
-No automáticamente. Permanece válida hasta que la cierres manualmente desde otra app de Telegram (Settings → Active Sessions → Terminate).
+Not automatically. It stays valid until you close it manually from another Telegram app (Settings → Active Sessions → Terminate).
 
-**¿Qué pasa si el archivo en disco es más grande que `size` del checkpoint?**
+**What happens if the file on disk is bigger than `size` from the checkpoint?**
 
-`reconcile_with_disk` ajusta: si `actual > size`, asume que el archivo está corrupto y reinicia desde 0. Si `actual <= size`, toma `actual` como nuevo punto de partida.
+`reconcile_with_disk` adjusts: if `actual > size`, it assumes the file is corrupt and restarts from 0. If `actual <= size`, it takes `actual` as the new starting point.
 
-**¿Funciona en Linux?**
+**Does it work on Linux?**
 
-Sí. El detector `find_simple_audio_player()` resuelve la diferencia con macOS:
+Yes. The `find_simple_audio_player()` detector resolves the difference with macOS:
 
-| Tarea | macOS | Linux |
+| Task | macOS | Linux |
 |---|---|---|
-| Reproducción con controles | `mpv` | `mpv` (igual) |
-| Reproducción simple (fallback) | `afplay` (nativo) | `ffplay` → `mpg123` → `paplay` |
-| Preview 30s del menú "Buscar canales" | `afplay -t 30` | `ffplay -t 30` (o `mpg123 -n 1140`) |
-| Keyboard listener | `termios` | `termios` (POSIX, idéntico) |
-| mpv IPC (Unix socket en `/tmp`) | ✓ | ✓ |
+| Playback with controls | `mpv` | `mpv` (same) |
+| Simple playback (fallback) | `afplay` (built-in) | `ffplay` → `mpg123` → `paplay` |
+| 30s preview from "Search channels" menu | `afplay -t 30` | `ffplay -t 30` (or `mpg123 -n 1140`) |
+| Keyboard listener | `termios` | `termios` (POSIX, identical) |
+| mpv IPC (Unix socket in `/tmp`) | ✓ | ✓ |
 
-Lo único que se rompería en una máquina Linux mínima sin `ffmpeg` ni `mpg123`: la opción de Biblioteca local y la Vista previa quedarían deshabilitadas. Streaming online y descargas funcionan independientemente.
+The only thing that breaks on a minimal Linux box without `ffmpeg` or `mpg123`: the Local library and Preview options would be disabled. Online streaming and downloads work independently.
 
-**¿Funciona en Windows?**
+**Does it work on Windows?**
 
-No probado. El keyboard listener usa `termios` (POSIX-only). Habría que adaptar con `msvcrt`. Linux y macOS sí están cubiertos.
+Untested. The keyboard listener uses `termios` (POSIX-only). It would need adapting with `msvcrt`. Linux and macOS are covered.
 
-**¿Cómo veo qué proceso `mpv` está corriendo?**
+**How do I see which `mpv` process is running?**
 
 ```bash
 ps aux | grep "mpv --input-ipc-server"
 ```
 
-Cada playback crea un socket en `/tmp/tg-mpv-XXXXXXXX.sock`.
+Each playback creates a socket at `/tmp/tg-mpv-XXXXXXXX.sock`.
 
-**¿Por qué el track 2 arranca casi instantáneo en streaming pero el 1 sí tarda?**
+**Why does track 2 start almost instantly in streaming, but track 1 takes a moment?**
 
-El primer track no tiene pre-fetch previo: empieza al mismo tiempo que `iter_download`, así que arranca cuando llega el primer chunk de Telegram (~1-3s). Mientras suena, el track 2 está siendo pre-descargado a un `asyncio.Queue` en RAM. Cuando termina el 1, mpv del 2 abre stdin y consume el buffer ya listo → arranque <1s. Lo mismo para el 3 cuando empieza el 2.
+The first track has no prior prefetch: it starts at the same time as `iter_download`, so it begins when the first chunk arrives from Telegram (~1-3s). While it plays, track 2 is being prefetched into an in-RAM `asyncio.Queue`. When track 1 ends, mpv for track 2 opens stdin and consumes the ready buffer → <1s start. Same goes for 3 when 2 begins.
 
-**¿Cuánta RAM consume el pre-fetch?**
+**How much RAM does prefetch consume?**
 
-Tope teórico: `maxsize=128 chunks × 256 KB = 32 MB` por prefetch activo. Como solo se pre-fetch el siguiente (lookahead=1), el peak es ~32 MB. En la práctica, los audios típicos pesan 6-15 MB y el queue nunca se llena.
+Theoretical cap: `maxsize=128 chunks × 256 KB = 32 MB` per active prefetch. Since only the next track is prefetched (lookahead=1), the peak is ~32 MB. In practice, typical audios are 6-15 MB and the queue never fills.
 
-**¿Qué pasa si Telegram corta a mitad del pre-fetch?**
+**What happens if Telegram cuts off mid-prefetch?**
 
-`prefetch.failed = True` y se encola sentinel `None`. Cuando el track actual termina y el feed task del siguiente empieza a drenar, recibe el sentinel sin haber escrito todo → mpv recibe stdin truncado y termina prematuro. La cola avanza al siguiente. No hay retry automático en esta versión (ver tabla "E. Resilencia" en el roadmap).
+`prefetch.failed = True` and a sentinel `None` is enqueued. When the current track ends and the next track's feed task starts draining, it gets the sentinel without having written everything → mpv receives truncated stdin and ends prematurely. The queue advances to the next. There's no automatic retry in this version (see "E. Resilience" in the roadmap).
 
-**¿Puedo reordenar la cola en runtime?**
+**Can I reorder the queue at runtime?**
 
-No en esta versión. La cola es fija desde el momento de la selección. Para saltar al siguiente usa `n`; para retroceder al anterior, `p`.
+Not in this version. The queue is fixed from the moment of selection. To skip to next use `n`; to go back use `p`.
 
-**¿Qué pasa si presiono `p` en el primer track de la cola?**
+**What happens if I press `p` on the first track of the queue?**
 
-Lo reinicia desde el principio (no underflowea ni va al final de la cola). Es equivalente a `0` (seek al inicio) pero re-arranca mpv desde cero. Si lo que quieres es solo volver al inicio del track sin reiniciar el prefetch, usa `0`.
+It restarts it from the beginning (no underflow, no jump to end). Equivalent to `0` (seek to start) but it relaunches mpv from scratch. If you only want to return to the start of the track without restarting the prefetch, use `0`.
 
-**¿Por qué `p` y `n` y no flechas izquierda/derecha?**
+**Why `p` and `n` instead of left/right arrows?**
 
-Las flechas ya están asignadas a seek (±10s), que es la convención de mpv y la mayoría de reproductores. Usar `p`/`n` (previous/next) es la convención de cmus/vimusic/spotify-tui y evita conflicto.
-
----
-
-## Limitaciones conocidas
-
-- **macOS y Linux**: ambos plenamente soportados con detección automática del reproductor de respaldo (`afplay` en macOS; `ffplay`/`mpg123`/`paplay` en Linux). Windows no probado (`termios` es POSIX-only).
-- **Una descarga concurrente**: para evitar rate limits Telegram.
-- **Streaming**: usa **🌐 Reproducción online (streaming)** del menú principal (requiere `mpv`). Bytes pasan por RAM, nunca por disco. Soporta uno solo, selección o canal completo en cola con auto-avance y pre-fetch del siguiente track. Lookahead de 1 (no se pre-cargan más de un track adelante para acotar RAM). Sin reanudación entre sesiones — al cerrar el CLI, la cola se pierde.
-- **Sin live refresh en `_jobs_view` por defecto**: hay que entrar a "Ver en vivo" porque `Live` y `questionary` no coexisten en el mismo TTY.
-- **`mpv` opcional**: sin él, no hay controles (afplay no acepta input).
+Arrows are already assigned to seek (±10s), which is the convention in mpv and most players. Using `p`/`n` (previous/next) follows the cmus/vimusic/spotify-tui convention and avoids conflict.
 
 ---
 
-## Operación día-a-día
+## Known limitations
 
-### Empezar una nueva descarga grande
+- **macOS and Linux**: both fully supported with auto-detection of the fallback player (`afplay` on macOS; `ffplay`/`mpg123`/`paplay` on Linux). Windows untested (`termios` is POSIX-only).
+- **One concurrent download**: to avoid Telegram rate limits.
+- **Streaming**: use **🌐 Reproducción online (streaming)** from the main menu (requires `mpv`). Bytes flow through RAM, never disk. Supports single track, selection, or full channel as a queue with auto-advance and next-track prefetch. Lookahead of 1 (no further prefetch to bound RAM). No cross-session resume — closing the CLI loses the queue.
+- **No live refresh in `_jobs_view` by default**: you have to enter "Live view" because `Live` and `questionary` don't coexist in the same TTY.
+- **`mpv` optional**: without it, no controls (afplay doesn't accept input).
+
+---
+
+## Day-to-day operation
+
+### Start a new big download
 
 ```
 1. telegram-audio-dl
 2. → 🔍 Buscar canales en Telegram
-3. → eliges canal → "⬇️ Descargar todos"
-4. → confirma carpeta destino
-5. → ✓ Encolado (state pre-inventariado en SQLite, vuelves al menú)
-6. → 📊 Ver descargas en curso → "📺 Ver en vivo" para monitorear
-7. Cierras la terminal cuando quieras → job pasa a "paused"
+3. → pick channel → "⬇️ Descargar todos"
+4. → confirm destination folder
+5. → ✓ Enqueued (state pre-inventoried in SQLite, you're back at the menu)
+6. → 📊 Ver descargas en curso → "📺 Ver en vivo" to monitor
+7. Close the terminal whenever → job goes to "paused"
 ```
 
-### Retomar al día siguiente (auto-reanudación)
+### Resume the next day (auto-resume)
 
 ```
 1. telegram-audio-dl
-2. → Buscar canales en Telegram (o cualquier opción que conecte el manager)
+2. → Buscar canales en Telegram (or any option that connects the manager)
 3. → "Conectando a Telegram…"
 4. → "▶ Reanudando 1 descarga(s) pausada(s) automáticamente."
-5. → ya estás de vuelta en el menú; las descargas continúan en background
+5. → you're back at the menu; downloads continue in the background
 ```
 
-Para retomar también con **audios nuevos del canal**, usa "Reanudar descargas pendientes" → eliges canal → "¿Sincronizar con Telegram?" → Sí. Eso busca audios nuevos en el canal y los agrega al state antes de reencolar.
+To also resume with **new audios from the channel**, use "Reanudar descargas pendientes" → pick channel → "¿Sincronizar con Telegram?" → Yes. That looks for new audios in the channel and adds them to the state before re-enqueueing.
 
-Si saltas la sincronización, solo se reencolan los pendientes ya conocidos. Útil cuando estás offline o cuando sabes que el canal no cambió.
+If you skip the sync, only the already-known pending items are re-enqueued. Useful when you're offline or know the channel didn't change.
 
-### Escuchar lo descargado mientras se baja más
+### Listen to what's downloaded while more is downloading
 
 ```
-1. (tienes una descarga corriendo en background)
+1. (you have a download running in the background)
 2. → 📚 Biblioteca local
-3. → 🎲 Shuffle global   (50 al azar de toda la biblioteca)
-   o → ▶️ Reproducir un canal completo
-4. Suena con panel multimedia + controles mpv
-5. La descarga sigue en background sin afectarse
+3. → 🎲 Shuffle global   (50 random across the entire library)
+   or → ▶️ Reproducir un canal completo
+4. Plays with media panel + mpv controls
+5. The download keeps running in the background unaffected
 ```
 
-### Probar antes de descargar
-
-```
-1. → 🌐 Reproducción online (streaming)
-2. → eliges canal
-3. → 🎵 Uno solo → eliges audio → suena inmediato sin tocar disco
-4. Ctrl+C / q al terminar → nada queda local
-5. Si te gusta: → 🔍 Buscar canales en Telegram → "Descargar todos" o "Seleccionar algunos"
-```
-
-### Catar varios tracks de un canal nuevo en cola
+### Test before downloading
 
 ```
 1. → 🌐 Reproducción online (streaming)
-2. → eliges canal
-3. → 🔀 Selección (cola)  →  marca 5-10 audios (espacio para checkbox, o rangos si >100)
-4. Suena el primero con panel COLA mostrando ↶ Anterior · ▶ Ahora · ↷ Siguientes 6
-5. Mientras suena, el siguiente ya se está pre-descargando en RAM
-6. Al terminar el actual: arranque <1s del siguiente (gracias al pre-fetch)
-7. n = siguiente  ·  p = anterior  ·  q o Ctrl+C = salir de toda la cola
-8. Si te convence el canal: → menú principal → 🔍 Buscar canales → "Descargar todos"
+2. → pick channel
+3. → 🎵 Uno solo → pick audio → plays instantly without touching disk
+4. Ctrl+C / q to end → nothing remains locally
+5. If you like it: → 🔍 Buscar canales en Telegram → "Descargar todos" or "Seleccionar algunos"
 ```
 
-### Limpiar todo y empezar de cero
+### Sample several tracks of a new channel as a queue
+
+```
+1. → 🌐 Reproducción online (streaming)
+2. → pick channel
+3. → 🔀 Selección (cola)  →  mark 5-10 audios (space for checkbox, or ranges if >100)
+4. The first plays with QUEUE panel showing ↶ Previous · ▶ Now · ↷ Next 6
+5. While playing, the next is being prefetched into RAM
+6. When the current ends: <1s start of next (thanks to prefetch)
+7. n = next  ·  p = previous  ·  q or Ctrl+C = exit the entire queue
+8. If you like the channel: → main menu → 🔍 Buscar canales → "Descargar todos"
+```
+
+### Wipe everything and start fresh
 
 ```bash
 rm -rf state/ telegram_audio_dl.session
-# ⚠ pierdes la DB SQLite (channels, files, jobs) y los logs.
-#   Los archivos descargados en sus carpetas se mantienen intactos.
+# ⚠ you lose the SQLite DB (channels, files, jobs) and the logs.
+#   Files downloaded into their folders remain intact.
 ```
